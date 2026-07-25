@@ -1,0 +1,611 @@
+import React, { useState, useEffect } from 'react';
+import { Room, Booking, GuestProfile, Property } from './types';
+import { INITIAL_ROOMS, INITIAL_BOOKINGS, INITIAL_GUESTS, INITIAL_PROPERTIES } from './data/initialData';
+import { Header } from './components/Header';
+import { OccupancyDashboard } from './components/Dashboard/OccupancyDashboard';
+import { CalendarView } from './components/Calendar/CalendarView';
+import { BookingWizard } from './components/Bookings/BookingWizard';
+import { BookingList } from './components/Bookings/BookingList';
+import { RoomManagement } from './components/Rooms/RoomManagement';
+import { RevenueDashboard } from './components/Analytics/RevenueDashboard';
+import { GuestCRM } from './components/Guests/GuestCRM';
+import { AiAssistantDrawer } from './components/AiAssistant/AiAssistantDrawer';
+import { TelegramSettingsModal } from './components/Settings/TelegramSettingsModal';
+import { SystemDocPdfModal } from './components/Documentation/SystemDocPdfModal';
+import { PropertyManagerModal } from './components/Properties/PropertyManagerModal';
+import { CheckOutModal } from './components/Bookings/CheckOutModal';
+import { sendHousekeepingTelegramReminder } from './utils/telegramUtils';
+import {
+  loadAppDataFromFirestore,
+  syncAllToFirestore,
+  clearAllBookingsFromFirestore
+} from './lib/dbService';
+
+export default function App() {
+  const [properties, setProperties] = useState<Property[]>(() => {
+    const saved = localStorage.getItem('homestay_properties');
+    if (saved) {
+      try {
+        const parsed: Property[] = JSON.parse(saved);
+        if (parsed && parsed.length > 0) return parsed;
+      } catch (e) {
+        // ignore
+      }
+    }
+    return INITIAL_PROPERTIES;
+  });
+
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(() => {
+    return localStorage.getItem('homestay_selected_property_id') || 'p-nohshring';
+  });
+
+  const [propertyModalOpen, setPropertyModalOpen] = useState<boolean>(false);
+
+  const [rooms, setRooms] = useState<Room[]>(() => {
+    const saved = localStorage.getItem('homestay_rooms');
+    if (saved) {
+      try {
+        const parsed: Room[] = JSON.parse(saved);
+        const updated = parsed.map(r => {
+          if (r.roomNumber === '2.1' || r.roomNumber === '3.1' || r.name.includes('2.1') || r.name.includes('3.1')) {
+            return { ...r, pricePerNight: 2500 };
+          }
+          return r;
+        });
+        return updated;
+      } catch (e) {
+        // ignore
+      }
+    }
+    return INITIAL_ROOMS;
+  });
+
+  const [bookings, setBookings] = useState<Booking[]>(() => {
+    const saved = localStorage.getItem('homestay_bookings');
+    if (saved) {
+      try {
+        const parsed: Booking[] = JSON.parse(saved);
+        const realBookings = parsed.filter(b => !['b-101', 'b-102', 'b-103', 'b-104', 'b-105', 'b-106'].includes(b.id));
+        return realBookings;
+      } catch (e) {
+        // ignore
+      }
+    }
+    return INITIAL_BOOKINGS;
+  });
+
+  const [guests, setGuests] = useState<GuestProfile[]>(() => {
+    const saved = localStorage.getItem('homestay_guests');
+    if (saved) {
+      try {
+        const parsed: GuestProfile[] = JSON.parse(saved);
+        const realGuests = parsed.filter(g => !['g-101', 'g-102', 'g-103', 'g-104'].includes(g.id));
+        return realGuests;
+      } catch (e) {
+        // ignore
+      }
+    }
+    return INITIAL_GUESTS;
+  });
+
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [aiAssistantOpen, setAiAssistantOpen] = useState<boolean>(false);
+  const [telegramModalOpen, setTelegramModalOpen] = useState<boolean>(false);
+  const [systemDocsModalOpen, setSystemDocsModalOpen] = useState<boolean>(false);
+  const [toastAlert, setToastAlert] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isDbLoaded, setIsDbLoaded] = useState<boolean>(false);
+
+  // Filtered views based on active property selection
+  const activePropertyId = selectedPropertyId === 'all' ? 'p-nohshring' : selectedPropertyId;
+
+  const filteredRooms = selectedPropertyId === 'all'
+    ? rooms
+    : rooms.filter(r => (r.propertyId || 'p-nohshring') === selectedPropertyId);
+
+  const filteredBookings = selectedPropertyId === 'all'
+    ? bookings
+    : bookings.filter(b => (b.propertyId || 'p-nohshring') === selectedPropertyId);
+
+  // Load persistent data from Cloud Firestore database on startup
+  useEffect(() => {
+    let isMounted = true;
+
+    loadAppDataFromFirestore()
+      .then(data => {
+        if (!isMounted) return;
+        if (data.properties && data.properties.length > 0) {
+          setProperties(data.properties);
+        }
+        if (data.rooms && data.rooms.length > 0) {
+          setRooms(data.rooms);
+        }
+        if (data.bookings) {
+          setBookings(data.bookings);
+        }
+        if (data.guests) {
+          setGuests(data.guests);
+        }
+      })
+      .catch(err => {
+        console.warn('Firestore load error, checking server fallback:', err);
+        // Fallback to Express backend if Firestore fails
+        fetch('/api/db')
+          .then(res => res.json())
+          .then(res => {
+            if (res.success && res.data && isMounted) {
+              if (res.data.properties && Array.isArray(res.data.properties)) {
+                setProperties(res.data.properties);
+              }
+              if (res.data.rooms && Array.isArray(res.data.rooms) && res.data.rooms.length > 0) {
+                setRooms(res.data.rooms);
+              }
+              if (res.data.bookings && Array.isArray(res.data.bookings)) {
+                setBookings(res.data.bookings);
+              }
+              if (res.data.guests && Array.isArray(res.data.guests)) {
+                setGuests(res.data.guests);
+              }
+            }
+          })
+          .catch(e => console.warn('Server database fallback failed:', e));
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsDbLoaded(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Prefills for New Booking Wizard
+  const [prefilledRoomId, setPrefilledRoomId] = useState<string | undefined>();
+  const [prefilledCheckIn, setPrefilledCheckIn] = useState<string | undefined>();
+
+  // Selected Booking for detail voucher view
+  const [selectedBookingForVoucher, setSelectedBookingForVoucher] = useState<Booking | null>(null);
+
+  // Selected Booking for Check-Out Bill Adjustment Popup
+  const [checkoutTargetBooking, setCheckoutTargetBooking] = useState<Booking | null>(null);
+
+  // Save changes to Cloud Firestore, LocalStorage, and Express Server DB
+  useEffect(() => {
+    if (!isDbLoaded) return;
+
+    try {
+      localStorage.setItem('homestay_properties', JSON.stringify(properties));
+      localStorage.setItem('homestay_selected_property_id', selectedPropertyId);
+      localStorage.setItem('homestay_rooms', JSON.stringify(rooms));
+      localStorage.setItem('homestay_bookings', JSON.stringify(bookings));
+      localStorage.setItem('homestay_guests', JSON.stringify(guests));
+    } catch (quotaErr) {
+      console.warn('LocalStorage quota limit reached:', quotaErr);
+    }
+
+    // Persistent sync to Cloud Firestore
+    syncAllToFirestore(rooms, bookings, guests, properties);
+
+    // Sync to Express server in-memory/file storage for server-side AI routes
+    fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties, rooms, bookings, guests })
+    }).catch(err => console.error('Failed to sync with server database:', err));
+  }, [properties, selectedPropertyId, rooms, bookings, guests, isDbLoaded]);
+
+  // Operational Handlers
+  const handleCheckIn = (bookingId: string) => {
+    setBookings(prev =>
+      prev.map(b => (b.id === bookingId ? { ...b, status: 'checked_in' } : b))
+    );
+  };
+
+  const handleCheckOut = (bookingId: string) => {
+    const targetBooking = bookings.find(b => b.id === bookingId);
+    if (targetBooking) {
+      setCheckoutTargetBooking(targetBooking);
+    }
+  };
+
+  const handleConfirmCheckOut = (
+    bookingId: string,
+    paymentMethod: 'Cash' | 'Online',
+    reference?: string
+  ) => {
+    const targetBooking = bookings.find(b => b.id === bookingId);
+    if (!targetBooking) return;
+
+    // Update booking: adjust balance to 0 (paid in full), set paymentStatus='Paid', record payment method, set status='checked_out'
+    setBookings(prev =>
+      prev.map(b => {
+        if (b.id !== bookingId) return b;
+        return {
+          ...b,
+          status: 'checked_out',
+          paymentStatus: 'Paid',
+          advanceAmount: b.totalAmount, // Bill fully adjusted
+          paymentMethod,
+          paymentReference: reference || b.paymentReference,
+          checkedOutAt: new Date().toISOString()
+        };
+      })
+    );
+
+    sendHousekeepingTelegramReminder(targetBooking, rooms)
+      .then(res => {
+        if (res.success) {
+          setToastAlert({
+            type: 'success',
+            message: `Check-out completed for ${targetBooking.guestName}! Bill adjusted via ${paymentMethod}. Housekeeping Telegram alert sent 🧹`
+          });
+        } else {
+          setToastAlert({
+            type: 'info',
+            message: `Check-out completed for ${targetBooking.guestName}! Bill adjusted via ${paymentMethod}. ${res.message}`
+          });
+        }
+      })
+      .catch(err => {
+        console.warn('Telegram checkout notification error:', err);
+        setToastAlert({
+          type: 'success',
+          message: `Check-out completed for ${targetBooking.guestName}! Bill adjusted via ${paymentMethod}.`
+        });
+      });
+
+    setTimeout(() => {
+      setToastAlert(null);
+    }, 6000);
+
+    setCheckoutTargetBooking(null);
+  };
+
+  const handleModifyBooking = (updatedBooking: Booking) => {
+    setBookings(prev =>
+      prev.map(b => (b.id === updatedBooking.id ? updatedBooking : b))
+    );
+  };
+
+  const handleCancelBooking = (bookingId: string, reason: string) => {
+    setBookings(prev =>
+      prev.map(b =>
+        b.id === bookingId
+          ? {
+              ...b,
+              status: 'cancelled',
+              cancelledAt: new Date().toISOString(),
+              cancellationReason: reason
+            }
+          : b
+      )
+    );
+  };
+
+  // Property Handlers
+  const handleAddProperty = (newProp: Property) => {
+    setProperties(prev => [...prev, newProp]);
+  };
+
+  const handleUpdateProperty = (updated: Property) => {
+    setProperties(prev => prev.map(p => p.id === updated.id ? updated : p));
+  };
+
+  const handleDeleteProperty = (propId: string) => {
+    if (propId === 'p-nohshring') {
+      alert('Primary property Nohshring Homestay cannot be deleted.');
+      return;
+    }
+    setProperties(prev => prev.filter(p => p.id !== propId));
+    if (selectedPropertyId === propId) {
+      setSelectedPropertyId('p-nohshring');
+    }
+  };
+
+  const handleBookingCreated = (newBooking: Booking) => {
+    const bookingWithProp = {
+      ...newBooking,
+      propertyId: newBooking.propertyId || activePropertyId
+    };
+    setBookings(prev => [bookingWithProp, ...prev]);
+
+    // Update or create guest profile
+    setGuests(prev => {
+      const existing = prev.find(
+        g => g.mobile === newBooking.guestMobile || g.email === newBooking.guestEmail
+      );
+
+      if (existing) {
+        return prev.map(g =>
+          g.id === existing.id
+            ? {
+                ...g,
+                totalStays: g.totalStays + 1,
+                totalNights: g.totalNights + newBooking.nights,
+                totalSpend: g.totalSpend + newBooking.totalAmount,
+                lastStayDate: newBooking.checkInDate
+              }
+            : g
+        );
+      } else {
+        const newGuest: GuestProfile = {
+          id: `guest-${Date.now()}`,
+          name: newBooking.guestName,
+          mobile: newBooking.guestMobile,
+          email: newBooking.guestEmail,
+          totalStays: 1,
+          totalNights: newBooking.nights,
+          totalSpend: newBooking.totalAmount,
+          lastStayDate: newBooking.checkInDate,
+          isVIP: false
+        };
+        return [newGuest, ...prev];
+      }
+    });
+  };
+
+  // Room Management Handlers
+  const handleAddRoom = (newRoom: Room) => {
+    const roomWithProp = {
+      ...newRoom,
+      propertyId: newRoom.propertyId || activePropertyId
+    };
+    setRooms(prev => [...prev, roomWithProp]);
+  };
+
+  const handleUpdateRoom = (updatedRoom: Room) => {
+    setRooms(prev => prev.map(r => (r.id === updatedRoom.id ? updatedRoom : r)));
+  };
+
+  const handleToggleRoomStatus = (roomId: string) => {
+    setRooms(prev =>
+      prev.map(r =>
+        r.id === roomId
+          ? { ...r, status: r.status === 'active' ? 'deactivated' : 'active' }
+          : r
+      )
+    );
+  };
+
+  const handleArchiveRoom = (roomId: string) => {
+    setRooms(prev =>
+      prev.map(r => (r.id === roomId ? { ...r, status: 'archived' } : r))
+    );
+  };
+
+  const handleUpdateGuest = (updatedGuest: GuestProfile) => {
+    setGuests(prev => prev.map(g => (g.id === updatedGuest.id ? updatedGuest : g)));
+  };
+
+  const handleClearAllBookings = () => {
+    if (confirm('Are you sure you want to clear all booking records? This will also clear guest CRM profiles.')) {
+      setBookings([]);
+      setGuests([]);
+      localStorage.setItem('homestay_bookings', '[]');
+      localStorage.setItem('homestay_guests', '[]');
+      clearAllBookingsFromFirestore();
+      fetch('/api/db/bookings', { method: 'DELETE' }).catch(err => console.error(err));
+    }
+  };
+
+  const handleResetData = () => {
+    const pin = prompt('Admin Authorization Required: Enter Admin Security PIN (Default: 1234)');
+    if (pin === '1234') {
+      localStorage.removeItem('homestay_rooms');
+      localStorage.removeItem('homestay_bookings');
+      localStorage.removeItem('homestay_guests');
+      setRooms(INITIAL_ROOMS);
+      setBookings(INITIAL_BOOKINGS);
+      setGuests(INITIAL_GUESTS);
+    } else if (pin !== null) {
+      alert('Incorrect Admin PIN. Reset cancelled.');
+    }
+  };
+
+  const handleExportData = () => {
+    const data = { rooms, bookings, guests, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `noahsring_homestay_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+  };
+
+  const handleSelectCellBooking = (room: Room, dateStr: string) => {
+    setPrefilledRoomId(room.id);
+    setPrefilledCheckIn(dateStr);
+    setActiveTab('wizard');
+  };
+
+  const activeRoomsCount = filteredRooms.filter(r => r.status === 'active').length;
+  const totalRoomsCount = filteredRooms.filter(r => r.status !== 'archived').length;
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-emerald-500 selection:text-white pb-12">
+      {/* Navigation Bar */}
+      <Header
+        activeTab={activeTab}
+        setActiveTab={tab => {
+          if (tab !== 'wizard') {
+            setPrefilledRoomId(undefined);
+            setPrefilledCheckIn(undefined);
+          }
+          setActiveTab(tab);
+        }}
+        activeRoomsCount={activeRoomsCount}
+        totalRoomsCount={totalRoomsCount}
+        properties={properties}
+        selectedPropertyId={selectedPropertyId}
+        onSelectProperty={id => setSelectedPropertyId(id)}
+        openPropertyManager={() => setPropertyModalOpen(true)}
+        openAiAssistant={() => setAiAssistantOpen(true)}
+        openTelegramSettings={() => setTelegramModalOpen(true)}
+        openSystemDocs={() => setSystemDocsModalOpen(true)}
+        onResetData={handleResetData}
+        onExportData={handleExportData}
+        onQuickNewBooking={() => {
+          setPrefilledRoomId(undefined);
+          setPrefilledCheckIn(undefined);
+          setActiveTab('wizard');
+        }}
+      />
+
+      {/* Floating Toast Alert Banner */}
+      {toastAlert && (
+        <div className="fixed bottom-5 right-5 z-50 max-w-md w-full animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <div
+            className={`p-4 rounded-2xl shadow-2xl border flex items-center justify-between gap-3 text-xs font-semibold ${
+              toastAlert.type === 'success'
+                ? 'bg-emerald-900 text-emerald-100 border-emerald-700'
+                : toastAlert.type === 'error'
+                ? 'bg-rose-900 text-rose-100 border-rose-700'
+                : 'bg-slate-900 text-slate-100 border-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base">🧹</span>
+              <p className="leading-snug">{toastAlert.message}</p>
+            </div>
+            <button
+              onClick={() => setToastAlert(null)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        {activeTab === 'dashboard' && (
+          <OccupancyDashboard
+            rooms={filteredRooms}
+            bookings={filteredBookings}
+            onCheckIn={handleCheckIn}
+            onCheckOut={handleCheckOut}
+            onNewBooking={() => setActiveTab('wizard')}
+            onViewBookingDetails={booking => {
+              setSelectedBookingForVoucher(booking);
+              setActiveTab('bookings');
+            }}
+          />
+        )}
+
+        {activeTab === 'calendar' && (
+          <CalendarView
+            rooms={filteredRooms}
+            bookings={filteredBookings}
+            onSelectCellBooking={handleSelectCellBooking}
+            onViewBookingDetails={booking => {
+              setSelectedBookingForVoucher(booking);
+              setActiveTab('bookings');
+            }}
+          />
+        )}
+
+        {activeTab === 'wizard' && (
+          <BookingWizard
+            rooms={filteredRooms}
+            bookings={filteredBookings}
+            prefilledRoomId={prefilledRoomId}
+            prefilledCheckIn={prefilledCheckIn}
+            onBookingCreated={handleBookingCreated}
+            onCancel={() => setActiveTab('dashboard')}
+          />
+        )}
+
+        {activeTab === 'bookings' && (
+          <BookingList
+            rooms={filteredRooms}
+            bookings={filteredBookings}
+            properties={properties}
+            onCheckIn={handleCheckIn}
+            onCheckOut={handleCheckOut}
+            onModifyBooking={handleModifyBooking}
+            onCancelBooking={handleCancelBooking}
+            onNewBookingClick={() => setActiveTab('wizard')}
+            onClearAllBookings={handleClearAllBookings}
+          />
+        )}
+
+        {activeTab === 'rooms' && (
+          <RoomManagement
+            rooms={filteredRooms}
+            onAddRoom={handleAddRoom}
+            onUpdateRoom={handleUpdateRoom}
+            onToggleRoomStatus={handleToggleRoomStatus}
+            onArchiveRoom={handleArchiveRoom}
+          />
+        )}
+
+        {activeTab === 'revenue' && (
+          <RevenueDashboard rooms={filteredRooms} bookings={filteredBookings} />
+        )}
+
+        {activeTab === 'guests' && (
+          <GuestCRM
+            guests={guests}
+            bookings={filteredBookings}
+            onUpdateGuest={handleUpdateGuest}
+          />
+        )}
+      </main>
+
+      {/* Property Manager Portfolio Modal */}
+      {propertyModalOpen && (
+        <PropertyManagerModal
+          properties={properties}
+          rooms={rooms}
+          bookings={bookings}
+          selectedPropertyId={selectedPropertyId}
+          onSelectProperty={id => setSelectedPropertyId(id)}
+          onAddProperty={handleAddProperty}
+          onUpdateProperty={handleUpdateProperty}
+          onDeleteProperty={handleDeleteProperty}
+          onClose={() => setPropertyModalOpen(false)}
+        />
+      )}
+
+      {/* AI Assistant Drawer */}
+      <AiAssistantDrawer
+        isOpen={aiAssistantOpen}
+        onClose={() => setAiAssistantOpen(false)}
+        rooms={rooms}
+        bookings={bookings}
+        onAutoFillBooking={prefill => {
+          setPrefilledRoomId(prefill.roomId);
+          setPrefilledCheckIn(prefill.checkIn);
+          setActiveTab('wizard');
+          setAiAssistantOpen(false);
+        }}
+      />
+
+      {/* Telegram Housekeeping Settings Modal */}
+      <TelegramSettingsModal
+        isOpen={telegramModalOpen}
+        onClose={() => setTelegramModalOpen(false)}
+      />
+
+      {/* System Documentation & Architecture PDF Modal */}
+      <SystemDocPdfModal
+        isOpen={systemDocsModalOpen}
+        onClose={() => setSystemDocsModalOpen(false)}
+      />
+
+      {/* Guest Check-Out & Bill Settlement Modal */}
+      {checkoutTargetBooking && (
+        <CheckOutModal
+          booking={checkoutTargetBooking}
+          rooms={rooms}
+          properties={properties}
+          onConfirmCheckOut={handleConfirmCheckOut}
+          onClose={() => setCheckoutTargetBooking(null)}
+        />
+      )}
+    </div>
+  );
+}

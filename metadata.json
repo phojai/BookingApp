@@ -1,0 +1,6 @@
+{
+  "name": "Dynamic Homestay Booking Manager",
+  "description": "An AI-powered property management and reservation system for homestays featuring dynamic room inventory, visual calendar matrix, booking validation, occupancy & revenue analytics, guest CRM, and an AI reservation assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
