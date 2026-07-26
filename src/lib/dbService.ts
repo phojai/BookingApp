@@ -6,7 +6,7 @@ import {
   deleteDoc,
   writeBatch
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { db, handleFirestoreError, OperationType, isFirestoreQuotaExceeded, setFirestoreQuotaExceeded } from './firebase';
 import { Room, Booking, GuestProfile, Property } from '../types';
 import { INITIAL_ROOMS, INITIAL_BOOKINGS, INITIAL_GUESTS, INITIAL_PROPERTIES } from '../data/initialData';
 
@@ -15,6 +15,25 @@ export interface AppData {
   bookings: Booking[];
   guests: GuestProfile[];
   properties: Property[];
+}
+
+let isQuotaExceeded = false;
+let lastSyncedDataHash = '';
+
+function checkQuotaExceeded(): boolean {
+  return isQuotaExceeded || isFirestoreQuotaExceeded();
+}
+
+function markQuotaExceeded(): void {
+  isQuotaExceeded = true;
+  setFirestoreQuotaExceeded();
+}
+
+function isQuotaError(err: unknown): boolean {
+  if (!err) return false;
+  const str = String(err) + ' ' + (err instanceof Error ? err.message : '') + ' ' + ((err as any)?.code || '');
+  const lower = str.toLowerCase();
+  return lower.includes('resource-exhausted') || lower.includes('quota') || lower.includes('exhausted');
 }
 
 // Ensure clean numeric values and remove undefined fields for Firestore compatibility
@@ -33,64 +52,80 @@ function sanitizeForFirestore<T extends Record<string, any>>(obj: T): T {
  * If Firestore is empty (e.g., first setup), seeds initial default records into Firestore.
  */
 export async function loadAppDataFromFirestore(): Promise<AppData> {
+  if (checkQuotaExceeded()) {
+    throw new Error('Firestore quota limit reached. Using local storage fallback.');
+  }
+
   try {
-    const propsSnap = await getDocs(collection(db, 'properties')).catch(err => {
-      handleFirestoreError(err, OperationType.LIST, 'properties');
-      return null;
-    });
+    const fetchColl = async (collName: string) => {
+      if (checkQuotaExceeded()) return null;
+      try {
+        return await getDocs(collection(db, collName));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, collName);
+        return null;
+      }
+    };
 
-    const roomsSnap = await getDocs(collection(db, 'rooms')).catch(err => {
-      handleFirestoreError(err, OperationType.LIST, 'rooms');
-      return null;
-    });
+    const propsSnap = await fetchColl('properties');
+    if (checkQuotaExceeded() || !propsSnap) {
+      markQuotaExceeded();
+      throw new Error('Firestore query failed or quota exceeded. Falling back to local storage.');
+    }
 
-    const bookingsSnap = await getDocs(collection(db, 'bookings')).catch(err => {
-      handleFirestoreError(err, OperationType.LIST, 'bookings');
-      return null;
-    });
+    const roomsSnap = await fetchColl('rooms');
+    if (checkQuotaExceeded() || !roomsSnap) {
+      markQuotaExceeded();
+      throw new Error('Firestore query failed or quota exceeded. Falling back to local storage.');
+    }
 
-    const guestsSnap = await getDocs(collection(db, 'guests')).catch(err => {
-      handleFirestoreError(err, OperationType.LIST, 'guests');
-      return null;
-    });
+    const bookingsSnap = await fetchColl('bookings');
+    if (checkQuotaExceeded() || !bookingsSnap) {
+      markQuotaExceeded();
+      throw new Error('Firestore query failed or quota exceeded. Falling back to local storage.');
+    }
+
+    const guestsSnap = await fetchColl('guests');
+    if (checkQuotaExceeded() || !guestsSnap) {
+      markQuotaExceeded();
+      throw new Error('Firestore query failed or quota exceeded. Falling back to local storage.');
+    }
 
     let loadedProperties: Property[] = [];
     let loadedRooms: Room[] = [];
     let loadedBookings: Booking[] = [];
     let loadedGuests: GuestProfile[] = [];
 
-    if (propsSnap && !propsSnap.empty) {
+    if (!propsSnap.empty) {
       loadedProperties = propsSnap.docs.map(d => d.data() as Property);
     }
 
-    if (roomsSnap && !roomsSnap.empty) {
+    if (!roomsSnap.empty) {
       loadedRooms = roomsSnap.docs.map(d => d.data() as Room);
     }
 
-    if (bookingsSnap && !bookingsSnap.empty) {
+    if (!bookingsSnap.empty) {
       loadedBookings = bookingsSnap.docs.map(d => d.data() as Booking);
     }
 
-    if (guestsSnap && !guestsSnap.empty) {
+    if (!guestsSnap.empty) {
       loadedGuests = guestsSnap.docs.map(d => d.data() as GuestProfile);
     }
 
-    // If properties collection is empty, seed with INITIAL_PROPERTIES
-    if (loadedProperties.length === 0) {
+    // Only seed if snapshot fetches succeeded and collections were verified empty
+    if (loadedProperties.length === 0 && !checkQuotaExceeded()) {
       console.log('Seeding initial properties to Firestore...');
       loadedProperties = INITIAL_PROPERTIES;
       await seedPropertiesToFirestore(INITIAL_PROPERTIES);
     }
 
-    // If Firestore is completely empty for rooms, seed with INITIAL_ROOMS
-    if (loadedRooms.length === 0) {
+    if (loadedRooms.length === 0 && !checkQuotaExceeded()) {
       console.log('Seeding initial room inventory to Firestore...');
       loadedRooms = INITIAL_ROOMS;
       await seedRoomsToFirestore(INITIAL_ROOMS);
     }
 
-    // If Firestore is completely empty for bookings, seed with INITIAL_BOOKINGS
-    if (loadedBookings.length === 0 && loadedGuests.length === 0) {
+    if (loadedBookings.length === 0 && loadedGuests.length === 0 && !checkQuotaExceeded()) {
       const hasSeededBefore = localStorage.getItem('homestay_firestore_seeded');
       if (!hasSeededBefore) {
         console.log('Seeding initial bookings and guests to Firestore...');
@@ -138,6 +173,7 @@ export async function loadAppDataFromFirestore(): Promise<AppData> {
  * Seed initial properties to Firestore
  */
 async function seedPropertiesToFirestore(properties: Property[]) {
+  if (checkQuotaExceeded()) return;
   try {
     const batch = writeBatch(db);
     properties.forEach(p => {
@@ -146,6 +182,11 @@ async function seedPropertiesToFirestore(properties: Property[]) {
     });
     await batch.commit();
   } catch (e) {
+    if (isQuotaError(e)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota reached during property seeding.');
+      return;
+    }
     console.error('Failed to seed properties to Firestore:', e);
   }
 }
@@ -154,6 +195,7 @@ async function seedPropertiesToFirestore(properties: Property[]) {
  * Seed initial room inventory into Firestore
  */
 async function seedRoomsToFirestore(rooms: Room[]) {
+  if (checkQuotaExceeded()) return;
   try {
     const batch = writeBatch(db);
     rooms.forEach(r => {
@@ -162,6 +204,11 @@ async function seedRoomsToFirestore(rooms: Room[]) {
     });
     await batch.commit();
   } catch (e) {
+    if (isQuotaError(e)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota reached during room seeding.');
+      return;
+    }
     console.error('Failed to seed rooms to Firestore:', e);
   }
 }
@@ -170,6 +217,7 @@ async function seedRoomsToFirestore(rooms: Room[]) {
  * Seed initial bookings and guests into Firestore
  */
 async function seedBookingsAndGuestsToFirestore(bookings: Booking[], guests: GuestProfile[]) {
+  if (checkQuotaExceeded()) return;
   try {
     const batch = writeBatch(db);
     bookings.forEach(b => {
@@ -182,6 +230,11 @@ async function seedBookingsAndGuestsToFirestore(bookings: Booking[], guests: Gue
     });
     await batch.commit();
   } catch (e) {
+    if (isQuotaError(e)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota reached during bookings/guests seeding.');
+      return;
+    }
     console.error('Failed to seed bookings & guests to Firestore:', e);
   }
 }
@@ -190,9 +243,15 @@ async function seedBookingsAndGuestsToFirestore(bookings: Booking[], guests: Gue
  * Save single room to Firestore
  */
 export async function saveRoomToFirestore(room: Room): Promise<void> {
+  if (checkQuotaExceeded()) return;
   try {
     await setDoc(doc(db, 'rooms', room.id), sanitizeForFirestore(room));
   } catch (err) {
+    if (isQuotaError(err)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota reached. Switched to local storage.');
+      return;
+    }
     handleFirestoreError(err, OperationType.WRITE, `rooms/${room.id}`);
   }
 }
@@ -201,9 +260,15 @@ export async function saveRoomToFirestore(room: Room): Promise<void> {
  * Save single booking to Firestore
  */
 export async function saveBookingToFirestore(booking: Booking): Promise<void> {
+  if (checkQuotaExceeded()) return;
   try {
     await setDoc(doc(db, 'bookings', booking.id), sanitizeForFirestore(booking));
   } catch (err) {
+    if (isQuotaError(err)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota reached. Switched to local storage.');
+      return;
+    }
     handleFirestoreError(err, OperationType.WRITE, `bookings/${booking.id}`);
   }
 }
@@ -212,9 +277,15 @@ export async function saveBookingToFirestore(booking: Booking): Promise<void> {
  * Save single guest profile to Firestore
  */
 export async function saveGuestToFirestore(guest: GuestProfile): Promise<void> {
+  if (checkQuotaExceeded()) return;
   try {
     await setDoc(doc(db, 'guests', guest.id), sanitizeForFirestore(guest));
   } catch (err) {
+    if (isQuotaError(err)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota reached. Switched to local storage.');
+      return;
+    }
     handleFirestoreError(err, OperationType.WRITE, `guests/${guest.id}`);
   }
 }
@@ -223,9 +294,15 @@ export async function saveGuestToFirestore(guest: GuestProfile): Promise<void> {
  * Delete a booking from Firestore
  */
 export async function deleteBookingFromFirestore(bookingId: string): Promise<void> {
+  if (checkQuotaExceeded()) return;
   try {
     await deleteDoc(doc(db, 'bookings', bookingId));
   } catch (err) {
+    if (isQuotaError(err)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota reached. Switched to local storage.');
+      return;
+    }
     handleFirestoreError(err, OperationType.DELETE, `bookings/${bookingId}`);
   }
 }
@@ -234,6 +311,7 @@ export async function deleteBookingFromFirestore(bookingId: string): Promise<voi
  * Clear all bookings and guests from Firestore
  */
 export async function clearAllBookingsFromFirestore(): Promise<void> {
+  if (checkQuotaExceeded()) return;
   try {
     const bookingsSnap = await getDocs(collection(db, 'bookings'));
     const guestsSnap = await getDocs(collection(db, 'guests'));
@@ -243,6 +321,11 @@ export async function clearAllBookingsFromFirestore(): Promise<void> {
     guestsSnap.docs.forEach(d => batch.delete(d.ref));
     await batch.commit();
   } catch (err) {
+    if (isQuotaError(err)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota reached. Switched to local storage.');
+      return;
+    }
     console.error('Failed to clear bookings in Firestore:', err);
   }
 }
@@ -251,7 +334,21 @@ export async function clearAllBookingsFromFirestore(): Promise<void> {
  * Sync entire state to Firestore (and local server / localStorage)
  */
 export async function syncAllToFirestore(rooms: Room[], bookings: Booking[], guests: GuestProfile[], properties?: Property[]): Promise<void> {
+  if (checkQuotaExceeded()) return;
+
   try {
+    const currentHash = JSON.stringify({
+      p: properties?.map(p => ({ id: p.id, n: p.name })),
+      r: rooms.map(r => ({ id: r.id, s: r.status, p: r.pricePerNight })),
+      b: bookings.map(b => ({ id: b.id, s: b.status, ps: b.paymentStatus, a: b.advanceAmount, g: b.guestName, m: b.guestMobile, t: b.totalAmount, d: b.checkInDate })),
+      g: guests.map(g => ({ id: g.id, n: g.name, m: g.mobile, e: g.email, s: g.totalStays, sp: g.totalSpend, l: g.lastStayDate }))
+    });
+
+    // Skip redundant network writes if data has not modified
+    if (currentHash === lastSyncedDataHash) {
+      return;
+    }
+
     // Write batch for modified or new records
     const batch = writeBatch(db);
     if (properties && properties.length > 0) {
@@ -260,8 +357,15 @@ export async function syncAllToFirestore(rooms: Room[], bookings: Booking[], gue
     rooms.forEach(r => batch.set(doc(db, 'rooms', r.id), sanitizeForFirestore(r)));
     bookings.forEach(b => batch.set(doc(db, 'bookings', b.id), sanitizeForFirestore(b)));
     guests.forEach(g => batch.set(doc(db, 'guests', g.id), sanitizeForFirestore(g)));
+
     await batch.commit();
+    lastSyncedDataHash = currentHash;
   } catch (err) {
-    console.warn('Failed batch sync to Firestore:', err);
+    if (isQuotaError(err)) {
+      markQuotaExceeded();
+      console.warn('Firestore write quota limit reached. Operational state preserved via LocalStorage & Express backend.');
+    } else {
+      console.warn('Failed batch sync to Firestore:', err);
+    }
   }
 }

@@ -51,7 +51,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
   const [name, setName] = useState<string>('');
   const [roomNumber, setRoomNumber] = useState<string>('');
   const [type, setType] = useState<RoomType>('Cottage');
-  const [capacity, setCapacity] = useState<number>(4);
+  const [capacity, setCapacity] = useState<number | ''>(4);
   const [pricePerNight, setPricePerNight] = useState<number>(2500);
   const [amenitiesInput, setAmenitiesInput] = useState<string>('Mountain View, Free WiFi, Hot Shower, Breakfast Included');
   const [notes, setNotes] = useState<string>('');
@@ -194,7 +194,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
         name,
         roomNumber,
         type,
-        capacity,
+        capacity: typeof capacity === 'number' ? capacity : 0,
         pricePerNight,
         amenities: amenitiesArray,
         notes,
@@ -209,7 +209,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
         name,
         roomNumber,
         type,
-        capacity,
+        capacity: typeof capacity === 'number' ? capacity : 0,
         pricePerNight,
         amenities: amenitiesArray,
         status: 'active',
@@ -528,14 +528,24 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Capacity</label>
                   <input
                     type="number"
-                    min={1}
-                    value={capacity || ''}
-                    placeholder="2"
+                    min={0}
+                    value={capacity}
+                    placeholder="0"
                     onChange={e => {
                       const raw = e.target.value;
-                      setCapacity(raw === '' ? 1 : Math.max(1, parseInt(raw) || 1));
+                      if (raw === '') {
+                        setCapacity('');
+                      } else {
+                        const parsed = parseInt(raw, 10);
+                        setCapacity(isNaN(parsed) ? '' : Math.max(0, parsed));
+                      }
                     }}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                    onBlur={() => {
+                      if (capacity === '') {
+                        setCapacity(0);
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
                   />
                 </div>
                 <div>

@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, disableNetwork } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -32,9 +32,60 @@ export interface FirestoreErrorInfo {
   };
 }
 
+let quotaExceededFlag = false;
+
+export function setFirestoreQuotaExceeded() {
+  quotaExceededFlag = true;
+  try {
+    sessionStorage.setItem('homestay_firestore_quota_exceeded', 'true');
+    localStorage.setItem('homestay_firestore_quota_exceeded', 'true');
+    localStorage.setItem('homestay_firestore_quota_time', Date.now().toString());
+  } catch {
+    // ignore
+  }
+  disableNetwork(db).catch(() => {});
+}
+
+export function isFirestoreQuotaExceeded() {
+  if (quotaExceededFlag) return true;
+  try {
+    const quotaFlag = localStorage.getItem('homestay_firestore_quota_exceeded') || sessionStorage.getItem('homestay_firestore_quota_exceeded');
+    const quotaTime = localStorage.getItem('homestay_firestore_quota_time');
+    
+    if (quotaFlag === 'true') {
+      if (quotaTime && (Date.now() - parseInt(quotaTime, 10)) < 12 * 60 * 60 * 1000) {
+        quotaExceededFlag = true;
+        disableNetwork(db).catch(() => {});
+        return true;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  const errObj = error as any;
+  const errCode = errObj?.code || '';
+  const fullErrStr = (errMessage + ' ' + errCode + ' ' + String(error)).toLowerCase();
+
+  // If quota limit is exceeded or offline, set quota flag and log warning without throwing
+  if (
+    errCode === 'resource-exhausted' ||
+    fullErrStr.includes('resource-exhausted') ||
+    fullErrStr.includes('quota limit exceeded') ||
+    fullErrStr.includes('resource_exhausted') ||
+    fullErrStr.includes('quota')
+  ) {
+    setFirestoreQuotaExceeded();
+    console.warn('Firestore write/read quota reached. Operating smoothly via LocalStorage & Express fallback.');
+    return;
+  }
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -44,7 +95,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.warn('Firestore Operation Notice: ', JSON.stringify(errInfo));
+
   throw new Error(JSON.stringify(errInfo));
 }
 

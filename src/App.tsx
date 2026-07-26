@@ -18,8 +18,64 @@ import { sendHousekeepingTelegramReminder } from './utils/telegramUtils';
 import {
   loadAppDataFromFirestore,
   syncAllToFirestore,
+  saveBookingToFirestore,
+  saveGuestToFirestore,
   clearAllBookingsFromFirestore
 } from './lib/dbService';
+
+// Helper to normalize phone numbers for accurate matching across devices
+const normalizeMobile = (m?: string): string => {
+  if (!m) return '';
+  const digits = m.replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+};
+
+// Helper to merge local and remote bookings without dropping un-synced local records
+const mergeBookings = (existing: Booking[], incoming: Booking[]): Booking[] => {
+  const map = new Map<string, Booking>();
+  
+  existing.forEach(b => {
+    if (b && b.id) map.set(b.id, b);
+  });
+
+  incoming.forEach(b => {
+    if (b && b.id) {
+      if (!map.has(b.id)) {
+        map.set(b.id, b);
+      } else {
+        const ex = map.get(b.id)!;
+        const exTime = new Date(ex.createdAt || 0).getTime();
+        const incTime = new Date(b.createdAt || 0).getTime();
+        if (incTime >= exTime) {
+          map.set(b.id, { ...ex, ...b });
+        }
+      }
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => 
+    new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+};
+
+// Helper to merge local and remote guest profiles
+const mergeGuests = (existing: GuestProfile[], incoming: GuestProfile[]): GuestProfile[] => {
+  const map = new Map<string, GuestProfile>();
+  existing.forEach(g => {
+    if (g && g.id) map.set(g.id, g);
+  });
+  incoming.forEach(g => {
+    if (g && g.id) {
+      if (!map.has(g.id)) {
+        map.set(g.id, g);
+      } else {
+        const ex = map.get(g.id)!;
+        map.set(g.id, { ...ex, ...g });
+      }
+    }
+  });
+  return Array.from(map.values());
+};
 
 export default function App() {
   const [properties, setProperties] = useState<Property[]>(() => {
@@ -120,10 +176,10 @@ export default function App() {
           setRooms(data.rooms);
         }
         if (data.bookings) {
-          setBookings(data.bookings);
+          setBookings(prev => mergeBookings(prev, data.bookings));
         }
         if (data.guests) {
-          setGuests(data.guests);
+          setGuests(prev => mergeGuests(prev, data.guests));
         }
       })
       .catch(err => {
@@ -140,10 +196,10 @@ export default function App() {
                 setRooms(res.data.rooms);
               }
               if (res.data.bookings && Array.isArray(res.data.bookings)) {
-                setBookings(res.data.bookings);
+                setBookings(prev => mergeBookings(prev, res.data.bookings));
               }
               if (res.data.guests && Array.isArray(res.data.guests)) {
-                setGuests(res.data.guests);
+                setGuests(prev => mergeGuests(prev, res.data.guests));
               }
             }
           })
@@ -184,15 +240,21 @@ export default function App() {
       console.warn('LocalStorage quota limit reached:', quotaErr);
     }
 
-    // Persistent sync to Cloud Firestore
-    syncAllToFirestore(rooms, bookings, guests, properties);
+    // Persistent debounced sync to Cloud Firestore to conserve daily write quota
+    const syncTimer = setTimeout(() => {
+      syncAllToFirestore(rooms, bookings, guests, properties).catch(err => {
+        console.warn('Firestore background sync notice:', err);
+      });
+    }, 2500);
 
     // Sync to Express server in-memory/file storage for server-side AI routes
     fetch('/api/db', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ properties, rooms, bookings, guests })
-    }).catch(err => console.error('Failed to sync with server database:', err));
+    }).catch(err => console.warn('Failed to sync with server database:', err));
+
+    return () => clearTimeout(syncTimer);
   }, [properties, selectedPropertyId, rooms, bookings, guests, isDbLoaded]);
 
   // Operational Handlers
@@ -304,45 +366,100 @@ export default function App() {
   };
 
   const handleBookingCreated = (newBooking: Booking) => {
-    const bookingWithProp = {
+    const bookingWithProp: Booking = {
       ...newBooking,
       propertyId: newBooking.propertyId || activePropertyId
     };
-    setBookings(prev => [bookingWithProp, ...prev]);
 
-    // Update or create guest profile
-    setGuests(prev => {
-      const existing = prev.find(
-        g => g.mobile === newBooking.guestMobile || g.email === newBooking.guestEmail
-      );
+    // 1. Immediately update bookings state and LocalStorage
+    setBookings(prevBookings => {
+      const updatedBookings = [bookingWithProp, ...prevBookings];
+      try {
+        localStorage.setItem('homestay_bookings', JSON.stringify(updatedBookings));
+      } catch (e) {
+        console.warn('LocalStorage save warning:', e);
+      }
+      return updatedBookings;
+    });
 
-      if (existing) {
-        return prev.map(g =>
-          g.id === existing.id
-            ? {
-                ...g,
-                totalStays: g.totalStays + 1,
-                totalNights: g.totalNights + newBooking.nights,
-                totalSpend: g.totalSpend + newBooking.totalAmount,
-                lastStayDate: newBooking.checkInDate
-              }
-            : g
-        );
+    // 2. Immediately update or create guest profile with strict phone/email/name matching
+    setGuests(prevGuests => {
+      const targetMob = normalizeMobile(newBooking.guestMobile);
+      const targetEmail = (newBooking.guestEmail || '').trim().toLowerCase();
+      const targetName = (newBooking.guestName || '').trim().toLowerCase();
+
+      const existingIndex = prevGuests.findIndex(g => {
+        const gMob = normalizeMobile(g.mobile);
+        const gEmail = (g.email || '').trim().toLowerCase();
+        const gName = (g.name || '').trim().toLowerCase();
+
+        if (targetMob && gMob && targetMob === gMob) return true;
+        if (targetEmail && gEmail && targetEmail === gEmail) return true;
+        if (targetName && gName && targetName === gName) return true;
+        return false;
+      });
+
+      let updatedGuests: GuestProfile[];
+      let targetGuest: GuestProfile;
+
+      if (existingIndex !== -1) {
+        updatedGuests = prevGuests.map((g, idx) => {
+          if (idx !== existingIndex) return g;
+          targetGuest = {
+            ...g,
+            name: g.name || newBooking.guestName,
+            mobile: g.mobile || newBooking.guestMobile,
+            email: g.email || newBooking.guestEmail,
+            totalStays: (g.totalStays || 0) + 1,
+            totalNights: (g.totalNights || 0) + newBooking.nights,
+            totalSpend: (g.totalSpend || 0) + newBooking.totalAmount,
+            lastStayDate: newBooking.checkInDate || g.lastStayDate
+          };
+          return targetGuest;
+        });
       } else {
-        const newGuest: GuestProfile = {
+        targetGuest = {
           id: `guest-${Date.now()}`,
-          name: newBooking.guestName,
-          mobile: newBooking.guestMobile,
-          email: newBooking.guestEmail,
+          name: newBooking.guestName || 'Guest',
+          mobile: newBooking.guestMobile || '',
+          email: newBooking.guestEmail || '',
           totalStays: 1,
-          totalNights: newBooking.nights,
-          totalSpend: newBooking.totalAmount,
-          lastStayDate: newBooking.checkInDate,
+          totalNights: newBooking.nights || 1,
+          totalSpend: newBooking.totalAmount || 0,
+          lastStayDate: newBooking.checkInDate || new Date().toISOString().split('T')[0],
           isVIP: false
         };
-        return [newGuest, ...prev];
+        updatedGuests = [targetGuest, ...prevGuests];
       }
+
+      try {
+        localStorage.setItem('homestay_guests', JSON.stringify(updatedGuests));
+      } catch (e) {
+        console.warn('LocalStorage guest save warning:', e);
+      }
+
+      // Immediately save single guest profile to Firestore
+      if (targetGuest) {
+        saveGuestToFirestore(targetGuest).catch(e => console.warn('Direct firestore guest save notice:', e));
+      }
+
+      return updatedGuests;
     });
+
+    // 3. Save single booking directly to Firestore immediately (bypassing debounce)
+    saveBookingToFirestore(bookingWithProp).catch(e => console.warn('Direct firestore booking save notice:', e));
+
+    // 4. Sync immediately to server database
+    fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        properties,
+        rooms,
+        bookings: [bookingWithProp, ...bookings],
+        guests
+      })
+    }).catch(err => console.warn('Immediate server sync notice:', err));
   };
 
   // Room Management Handlers
@@ -550,6 +667,7 @@ export default function App() {
           <GuestCRM
             guests={guests}
             bookings={filteredBookings}
+            rooms={filteredRooms}
             onUpdateGuest={handleUpdateGuest}
           />
         )}

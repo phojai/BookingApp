@@ -125,7 +125,7 @@ export const BookingList: React.FC<BookingListProps> = ({
   const [modCheckIn, setModCheckIn] = useState<string>('');
   const [modCheckOut, setModCheckOut] = useState<string>('');
   const [modRoomIds, setModRoomIds] = useState<string[]>([]);
-  const [modGuests, setModGuests] = useState<number>(2);
+  const [modGuests, setModGuests] = useState<number | ''>(2);
   const [modAdvance, setModAdvance] = useState<number>(0);
   const [modDiscount, setModDiscount] = useState<number>(0);
   const [modRemoveGst, setModRemoveGst] = useState<boolean>(false);
@@ -210,7 +210,7 @@ export const BookingList: React.FC<BookingListProps> = ({
       roomIds: modRoomIds,
       checkInDate: modCheckIn,
       checkOutDate: modCheckOut,
-      numberOfGuests: modGuests,
+      numberOfGuests: typeof modGuests === 'number' ? modGuests : 0,
       nights: newNights,
       baseRatePerNight: combinedBaseRate,
       taxAmount,
@@ -610,14 +610,24 @@ export const BookingList: React.FC<BookingListProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Number of Guests</label>
                 <input
                   type="number"
-                  min={1}
-                  value={modGuests || ''}
-                  placeholder="1"
+                  min={0}
+                  value={modGuests}
+                  placeholder="0"
                   onChange={e => {
                     const raw = e.target.value;
-                    setModGuests(raw === '' ? 1 : Math.max(1, parseInt(raw) || 1));
+                    if (raw === '') {
+                      setModGuests('');
+                    } else {
+                      const parsed = parseInt(raw, 10);
+                      setModGuests(isNaN(parsed) ? '' : Math.max(0, parsed));
+                    }
                   }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                  onBlur={() => {
+                    if (modGuests === '') {
+                      setModGuests(0);
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-800"
                 />
               </div>
 

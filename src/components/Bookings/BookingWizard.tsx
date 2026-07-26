@@ -56,7 +56,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   const [guestName, setGuestName] = useState<string>('');
   const [guestMobile, setGuestMobile] = useState<string>('');
   const [guestEmail, setGuestEmail] = useState<string>('');
-  const [numberOfGuests, setNumberOfGuests] = useState<number>(2);
+  const [numberOfGuests, setNumberOfGuests] = useState<number | ''>(2);
   const [checkInDate, setCheckInDate] = useState<string>(prefilledCheckIn || getTodayIST());
   
   // Default checkOut to checkIn + 2 nights
@@ -97,7 +97,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
     bookings,
     checkInDate,
     checkOutDate,
-    numberOfGuests
+    numberOfGuests === '' ? 0 : numberOfGuests
   );
 
   useEffect(() => {
@@ -184,7 +184,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       guestName,
       guestMobile,
       guestEmail,
-      numberOfGuests,
+      numberOfGuests: numberOfGuests === '' ? 0 : numberOfGuests,
       checkInDate,
       checkOutDate,
       nights,
@@ -371,13 +371,23 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                 <div className="flex items-center space-x-3">
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     max={12}
-                    value={numberOfGuests || ''}
-                    placeholder="1"
+                    value={numberOfGuests}
+                    placeholder="0"
                     onChange={e => {
                       const raw = e.target.value;
-                      setNumberOfGuests(raw === '' ? 1 : Math.max(1, parseInt(raw) || 1));
+                      if (raw === '') {
+                        setNumberOfGuests('');
+                      } else {
+                        const parsed = parseInt(raw, 10);
+                        setNumberOfGuests(isNaN(parsed) ? '' : Math.max(0, parsed));
+                      }
+                    }}
+                    onBlur={() => {
+                      if (numberOfGuests === '') {
+                        setNumberOfGuests(0);
+                      }
                     }}
                     className="w-24 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
                   />
@@ -460,7 +470,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div className="text-xs text-slate-600">
               <span>Searching rooms for: </span>
-              <strong className="text-slate-800">{guestName} ({numberOfGuests} Guests)</strong>
+              <strong className="text-slate-800">{guestName} ({numberOfGuests === '' ? 0 : numberOfGuests} Guests)</strong>
               <span className="mx-2">|</span>
               <span className="text-emerald-700 font-semibold">
                 {formatDateReadable(checkInDate)} → {formatDateReadable(checkOutDate)} ({nights} Nights)
