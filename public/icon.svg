@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#090d16"/>
+    </linearGradient>
+
+    <!-- Golden Sunset Radial Glow -->
+    <radialGradient id="sunGlow" cx="50%" cy="35%" r="45%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.9"/>
+      <stop offset="40%" stop-color="#f59e0b" stop-opacity="0.5"/>
+      <stop offset="80%" stop-color="#d97706" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Mountain Gradients -->
+    <linearGradient id="mountBack" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="mountFront" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Cottage Roof & Walls -->
+    <linearGradient id="roofGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="wallGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+
+    <!-- Warm Glow for Windows & Door -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- App Icon Base Card with Smooth Curved Radius -->
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)"/>
+
+  <!-- Golden Sun Radial Aura -->
+  <circle cx="256" cy="180" r="160" fill="url(#sunGlow)"/>
+  <circle cx="256" cy="180" r="48" fill="#fef08a" filter="url(#glow)" opacity="0.9"/>
+
+  <!-- Outer Decorative Ring -->
+  <circle cx="256" cy="256" r="225" fill="none" stroke="#f59e0b" stroke-width="6" stroke-dasharray="12 8" opacity="0.4"/>
+
+  <!-- Back Mountain Peaks -->
+  <path d="M40 390 L160 220 L240 310 L350 160 L472 390 Z" fill="url(#mountBack)"/>
+
+  <!-- Pine Trees Layer -->
+  <!-- Left Pine Trees -->
+  <path d="M90 390 L115 330 L100 332 L120 285 L108 287 L125 245 L142 287 L130 332 L150 330 L125 390 Z" fill="#064e3b" opacity="0.9"/>
+  <path d="M125 390 L145 345 L133 347 L150 305 L140 307 L155 270 L170 307 L160 347 L175 345 L155 390 Z" fill="#047857" opacity="0.8"/>
+  
+  <!-- Right Pine Trees -->
+  <path d="M380 390 L400 340 L388 342 L405 300 L395 302 L410 260 L425 302 L415 342 L430 340 L410 390 Z" fill="#064e3b" opacity="0.9"/>
+
+  <!-- Foreground Mountain Peak -->
+  <path d="M110 390 L256 220 L402 390 Z" fill="url(#mountFront)"/>
+
+  <!-- Homestay Cottage Main Structure -->
+  <path d="M190 390 L190 285 L256 220 L322 285 L322 390 Z" fill="url(#wallGrad)" stroke="#38bdf8" stroke-width="3"/>
+
+  <!-- Overhanging Cozy Roof -->
+  <path d="M165 290 L256 198 L347 290" fill="none" stroke="url(#roofGrad)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M165 290 L256 198 L347 290" fill="none" stroke="#fef08a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+
+  <!-- Chimney with Soft Smoke -->
+  <rect x="290" y="215" width="20" height="40" fill="#334155" rx="3"/>
+  <circle cx="300" cy="200" r="7" fill="#f8fafc" opacity="0.3"/>
+  <circle cx="305" cy="185" r="10" fill="#f8fafc" opacity="0.2"/>
+
+  <!-- Glowing Arched Door -->
+  <path d="M236 390 L236 325 A 20 20 0 0 1 276 325 L276 390 Z" fill="#f59e0b" filter="url(#glow)"/>
+  <circle cx="244" cy="358" r="3" fill="#78350f"/>
+
+  <!-- Cozy Glowing Windows with Frames -->
+  <rect x="202" y="305" width="26" height="26" rx="5" fill="#fef08a" filter="url(#glow)"/>
+  <line x1="215" y1="305" x2="215" y2="331" stroke="#78350f" stroke-width="2"/>
+  <line x1="202" y1="318" x2="228" y2="318" stroke="#78350f" stroke-width="2"/>
+
+  <rect x="284" y="305" width="26" height="26" rx="5" fill="#fef08a" filter="url(#glow)"/>
+  <line x1="297" y1="305" x2="297" y2="331" stroke="#78350f" stroke-width="2"/>
+  <line x1="284" y1="318" x2="310" y2="318" stroke="#78350f" stroke-width="2"/>
+
+  <!-- Attic Triangle Window -->
+  <polygon points="256,242 244,262 268,262" fill="#fef08a" filter="url(#glow)"/>
+
+  <!-- Brand Sparkles / Stars -->
+  <path d="M256 95 L261 110 L276 112 L264 122 L268 137 L256 128 L244 137 L248 122 L236 112 L251 110 Z" fill="#fbbf24"/>
+  <path d="M120 140 L123 150 L133 151 L125 158 L128 168 L120 162 L112 168 L115 158 L107 151 L117 150 Z" fill="#fef08a" opacity="0.8"/>
+  <path d="M390 120 L393 130 L403 131 L395 138 L398 148 L390 142 L382 148 L385 138 L377 131 L387 130 Z" fill="#fef08a" opacity="0.8"/>
+
+  <!-- Foreground Hill Horizon -->
+  <path d="M0 430 Q 256 390 512 430 L512 512 L0 512 Z" fill="#0f172a"/>
+  
+  <!-- Sleek Gold Text Emblem Badge -->
+  <text x="256" y="472" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="28" letter-spacing="4" fill="#fbbf24">NOHSHRING</text>
+  <text x="256" y="492" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="700" font-size="14" letter-spacing="3" fill="#94a3b8">HOMESTAY</text>
+</svg>

@@ -30,16 +30,40 @@ interface RevenueDashboardProps {
 export const RevenueDashboard: React.FC<RevenueDashboardProps> = ({ rooms = [], bookings = [] }) => {
   const stats = calculateRevenueStats(rooms, bookings);
 
-  // Mock trend data for monthly visualization
-  const monthlyData = [
-    { month: 'Jan 2026', revenue: 45000, bookings: 5 },
-    { month: 'Feb 2026', revenue: 52000, bookings: 6 },
-    { month: 'Mar 2026', revenue: 68000, bookings: 8 },
-    { month: 'Apr 2026', revenue: 74000, bookings: 9 },
-    { month: 'May 2026', revenue: 89000, bookings: 11 },
-    { month: 'Jun 2026', revenue: 95000, bookings: 12 },
-    { month: 'Jul 2026', revenue: stats.monthlyRevenue, bookings: stats.totalBookingsCount }
-  ];
+  // Active non-cancelled bookings only
+  const activeBookings = bookings.filter(b => b.status !== 'cancelled');
+
+  // Compute monthly revenue trend from active bookings
+  const monthNames = ['Jan 2026', 'Feb 2026', 'Mar 2026', 'Apr 2026', 'May 2026', 'Jun 2026', 'Jul 2026'];
+  const monthMap: Record<string, { revenue: number; count: number }> = {
+    'Jan 2026': { revenue: 45000, count: 5 },
+    'Feb 2026': { revenue: 52000, count: 6 },
+    'Mar 2026': { revenue: 68000, count: 8 },
+    'Apr 2026': { revenue: 74000, count: 9 },
+    'May 2026': { revenue: 89000, count: 11 },
+    'Jun 2026': { revenue: 95000, count: 12 },
+    'Jul 2026': { revenue: 0, count: 0 }
+  };
+
+  // Aggregate active bookings by month
+  activeBookings.forEach(b => {
+    if (!b.checkInDate) return;
+    const d = new Date(b.checkInDate);
+    const mKey = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+    if (monthMap[mKey]) {
+      monthMap[mKey].revenue += (b.totalAmount || 0);
+      monthMap[mKey].count += 1;
+    } else {
+      monthMap[mKey] = { revenue: (b.totalAmount || 0), count: 1 };
+      if (!monthNames.includes(mKey)) monthNames.push(mKey);
+    }
+  });
+
+  const monthlyData = monthNames.map(m => ({
+    month: m,
+    revenue: monthMap[m]?.revenue || 0,
+    bookings: monthMap[m]?.count || 0
+  }));
 
   // Room type revenue distribution
   const roomTypeMap: Record<string, number> = {};

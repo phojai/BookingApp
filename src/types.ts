@@ -2,6 +2,19 @@ export type RoomType = 'Cottage' | 'Deluxe Suite' | 'Garden Villa' | 'Standard R
 
 export type RoomStatus = 'active' | 'deactivated' | 'archived';
 
+export type UserRole = 'super_admin' | 'owner' | 'manager' | 'staff';
+
+export interface AppUser {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  role: UserRole;
+  tenantId: string; // e.g. 'p-nohshring' | 'p-riverside' | 'all'
+  assignedPropertyIds: string[]; // List of property IDs this user is authorized to view
+  createdAt?: string;
+}
+
 export interface Property {
   id: string;
   name: string;
@@ -48,6 +61,17 @@ export interface FoodAndBeverageItem {
   notes?: string;
 }
 
+export interface KitchenEquipmentItem {
+  id: string;
+  name: string;
+  category?: 'Gas Equipment' | 'Utensils & Cookware' | 'Appliances' | 'Barbecue & Grill' | 'Custom';
+  price: number;
+  qty: number;
+  days?: number;
+  amount: number;
+  notes?: string;
+}
+
 export interface Booking {
   id: string;
   propertyId?: string;
@@ -76,8 +100,13 @@ export interface Booking {
   extraBedAmount?: number;
   foodAndBeverageCharges?: number;
   foodAndBeverageItems?: FoodAndBeverageItem[];
+  kitchenAndGasCharges?: number;
+  kitchenAndGasItems?: KitchenEquipmentItem[];
+  miscellaneousExpenses?: number;
+  miscellaneousExpensesNotes?: string;
   specialRequests?: string;
   createdAt: string;
+  updatedAt?: string;
   cancelledAt?: string;
   cancellationReason?: string;
 }

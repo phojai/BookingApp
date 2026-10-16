@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GuestProfile, Booking, Room } from '../../types';
-import { formatCurrency, formatDateReadable } from '../../utils/bookingUtils';
+import { formatCurrency, formatDateReadable, getWhatsAppShareUrl } from '../../utils/bookingUtils';
 import {
   Users,
   Search,
@@ -91,14 +91,15 @@ export const GuestCRM: React.FC<GuestCRMProps> = ({ guests = [], bookings = [], 
       });
 
       if (!exists) {
+        const isCancelled = b.status === 'cancelled';
         result.push({
           id: `guest-synth-${b.id}`,
           name: b.guestName || 'Guest',
           mobile: b.guestMobile || '',
           email: b.guestEmail || '',
-          totalStays: 1,
-          totalNights: b.nights || 1,
-          totalSpend: b.totalAmount || 0,
+          totalStays: isCancelled ? 0 : 1,
+          totalNights: isCancelled ? 0 : (b.nights || 1),
+          totalSpend: isCancelled ? 0 : (b.totalAmount || 0),
           lastStayDate: b.checkInDate || new Date().toISOString().split('T')[0],
           isVIP: false
         });
@@ -165,7 +166,10 @@ export const GuestCRM: React.FC<GuestCRMProps> = ({ guests = [], bookings = [], 
 
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <label htmlFor="guest_crm_search" className="sr-only">Search Guest CRM</label>
           <input
+            id="guest_crm_search"
+            name="guestCrmSearch"
             type="text"
             placeholder="Search guest name, phone, or email..."
             value={searchQuery}
@@ -179,31 +183,36 @@ export const GuestCRM: React.FC<GuestCRMProps> = ({ guests = [], bookings = [], 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredGuests.map(guest => {
           const guestBookings = getGuestBookings(guest);
+          const activeGuestBookings = guestBookings.filter(b => b.status !== 'cancelled');
 
-          const totalStaysCalc = Math.max(guest.totalStays || 0, guestBookings.length);
-          const totalNightsCalc = guestBookings.length > 0
-            ? guestBookings.reduce((sum, b) => sum + (b.nights || 1), 0)
-            : (guest.totalNights || 1);
-          const totalSpendCalc = guestBookings.length > 0
-            ? guestBookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0)
-            : (guest.totalSpend || 0);
+          const totalStaysCalc = Math.max(guest.totalStays || 0, activeGuestBookings.length);
+          const totalNightsCalc = activeGuestBookings.length > 0
+            ? activeGuestBookings.reduce((sum, b) => sum + (b.nights || 1), 0)
+            : (activeGuestBookings.length === 0 && guestBookings.length > 0 ? 0 : (guest.totalNights || 1));
+          const totalSpendCalc = activeGuestBookings.length > 0
+            ? activeGuestBookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0)
+            : (activeGuestBookings.length === 0 && guestBookings.length > 0 ? 0 : (guest.totalSpend || 0));
 
-          const cleanPhoneForWa = guest.mobile ? guest.mobile.replace(/[^0-9]/g, '') : '';
-          const whatsappUrl = `https://wa.me/${cleanPhoneForWa}?text=${encodeURIComponent(`Hi ${guest.name}, greetings from Noahsring Homestay! We look forward to welcoming you.`)}`;
+          const waMsg = `Hi ${guest.name}, greetings from Noahsring Homestay! Thank you for visiting us . Please share your reviews here : https://maps.app.goo.gl/a8NkYNPxiGnYsa9R8`;
+          const whatsappUrl = getWhatsAppShareUrl(guest.mobile, waMsg);
 
           return (
             <div
               key={guest.id}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition p-5 space-y-4 flex flex-col justify-between cursor-pointer group"
+              className={`rounded-2xl border transition p-5 space-y-4 flex flex-col justify-between cursor-pointer group shadow-xs ${
+                guest.isVIP
+                  ? 'bg-amber-50/40 border-amber-300/80 hover:border-amber-400 hover:shadow-md'
+                  : 'bg-white border-slate-200 hover:shadow-md'
+              }`}
               onClick={() => setSelectedGuestForDetails(guest)}
             >
               <div>
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-2">
                   <div>
                     <div className="flex items-center space-x-2">
                       <h3 className="text-base font-bold text-slate-800 group-hover:text-emerald-700 transition">{guest.name}</h3>
                       {guest.isVIP && (
-                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-black rounded-full flex items-center gap-1">
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black rounded-full flex items-center gap-1">
                           <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> VIP
                         </span>
                       )}
@@ -218,13 +227,35 @@ export const GuestCRM: React.FC<GuestCRMProps> = ({ guests = [], bookings = [], 
                     )}
                   </div>
 
-                  <button
-                    onClick={(e) => openEditModal(guest, e)}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
-                    title="Edit Notes & VIP Status"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center space-x-1 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const updated = { ...guest, isVIP: !guest.isVIP };
+                        onUpdateGuest(updated);
+                        if (selectedGuestForDetails?.id === guest.id) {
+                          setSelectedGuestForDetails(updated);
+                        }
+                      }}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-xl flex items-center gap-1 transition ${
+                        guest.isVIP
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
+                          : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-800 hover:border-amber-200 border border-slate-200'
+                      }`}
+                      title={guest.isVIP ? "Click to remove VIP status" : "Click to mark guest as VIP"}
+                    >
+                      <Star className={`w-3.5 h-3.5 ${guest.isVIP ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
+                      <span className="hidden sm:inline">{guest.isVIP ? 'VIP' : 'Mark VIP'}</span>
+                    </button>
+
+                    <button
+                      onClick={(e) => openEditModal(guest, e)}
+                      className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                      title="Edit Notes & VIP Status"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Stats */}
@@ -291,17 +322,18 @@ export const GuestCRM: React.FC<GuestCRMProps> = ({ guests = [], bookings = [], 
       {selectedGuestForDetails && (() => {
         const guest = selectedGuestForDetails;
         const guestBookings = getGuestBookings(guest);
+        const activeGuestBookings = guestBookings.filter(b => b.status !== 'cancelled');
 
-        const totalStaysCalc = Math.max(guest.totalStays || 0, guestBookings.length);
-        const totalNightsCalc = guestBookings.length > 0
-          ? guestBookings.reduce((sum, b) => sum + (b.nights || 1), 0)
-          : (guest.totalNights || 1);
-        const totalSpendCalc = guestBookings.length > 0
-          ? guestBookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0)
-          : (guest.totalSpend || 0);
+        const totalStaysCalc = Math.max(guest.totalStays || 0, activeGuestBookings.length);
+        const totalNightsCalc = activeGuestBookings.length > 0
+          ? activeGuestBookings.reduce((sum, b) => sum + (b.nights || 1), 0)
+          : (activeGuestBookings.length === 0 && guestBookings.length > 0 ? 0 : (guest.totalNights || 1));
+        const totalSpendCalc = activeGuestBookings.length > 0
+          ? activeGuestBookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0)
+          : (activeGuestBookings.length === 0 && guestBookings.length > 0 ? 0 : (guest.totalSpend || 0));
 
-        const cleanPhoneForWa = guest.mobile ? guest.mobile.replace(/[^0-9]/g, '') : '';
-        const whatsappUrl = `https://wa.me/${cleanPhoneForWa}?text=${encodeURIComponent(`Hi ${guest.name}, greetings from Noahsring Homestay!`)}`;
+        const waMsg = `Hi ${guest.name}, greetings from Noahsring Homestay! Thank you for visiting us . Please share your reviews here : https://maps.app.goo.gl/a8NkYNPxiGnYsa9R8`;
+        const whatsappUrl = getWhatsAppShareUrl(guest.mobile, waMsg);
 
         return (
           <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
@@ -562,8 +594,10 @@ export const GuestCRM: React.FC<GuestCRMProps> = ({ guests = [], bookings = [], 
             <h3 className="text-base font-bold text-slate-800">Edit Guest Profile: {editingGuest.name}</h3>
 
             <div className="space-y-3">
-              <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+              <label htmlFor="edit_guest_is_vip" className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
                 <input
+                  id="edit_guest_is_vip"
+                  name="isVIP"
                   type="checkbox"
                   checked={isVIP}
                   onChange={e => setIsVIP(e.target.checked)}
@@ -573,8 +607,10 @@ export const GuestCRM: React.FC<GuestCRMProps> = ({ guests = [], bookings = [], 
               </label>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Guest Preferences</label>
+                <label htmlFor="edit_guest_preferences" className="block text-xs font-semibold text-slate-700 mb-1">Guest Preferences</label>
                 <textarea
+                  id="edit_guest_preferences"
+                  name="preferences"
                   rows={2}
                   value={preferences}
                   onChange={e => setPreferences(e.target.value)}
@@ -584,8 +620,10 @@ export const GuestCRM: React.FC<GuestCRMProps> = ({ guests = [], bookings = [], 
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Owner Notes</label>
+                <label htmlFor="edit_guest_notes" className="block text-xs font-semibold text-slate-700 mb-1">Owner Notes</label>
                 <textarea
+                  id="edit_guest_notes"
+                  name="notes"
                   rows={2}
                   value={notes}
                   onChange={e => setNotes(e.target.value)}

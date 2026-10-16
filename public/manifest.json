@@ -1,0 +1,49 @@
+{
+  "name": "Nohshring Homestay Management",
+  "short_name": "Nohshring",
+  "description": "Official Property, Reservation & Invoice Management App for Nohshring Homestay",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "any",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["business", "travel", "productivity"],
+  "shortcuts": [
+    {
+      "name": "New Reservation",
+      "short_name": "New Booking",
+      "description": "Create a new booking reservation",
+      "url": "/?action=new_booking",
+      "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "View Calendar",
+      "short_name": "Calendar",
+      "description": "Check availability calendar",
+      "url": "/?tab=calendar",
+      "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

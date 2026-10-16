@@ -52,6 +52,20 @@ service cloud.firestore {
         && data.mobile is string;
     }
 
+    function isValidUser(data) {
+      return data.uid is string
+        && data.email is string
+        && data.role in ['super_admin', 'owner', 'manager', 'staff']
+        && data.tenantId is string;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if isValidId(userId) && isValidUser(incoming());
+      allow delete: if isValidId(userId);
+    }
+
     // Properties collection
     match /properties/{propertyId} {
       allow read: if true;

@@ -199,7 +199,10 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({
               </p>
               <div className="flex gap-2">
                 <input
+                  id="ai_gemini_api_key"
+                  name="geminiApiKey"
                   type="password"
+                  autoComplete="off"
                   value={tempKeyInput}
                   onChange={e => setTempKeyInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSaveCustomKey()}
@@ -287,6 +290,8 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({
         {/* Input Bar */}
         <div className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0">
           <input
+            id="ai_chat_prompt"
+            name="chatPrompt"
             type="text"
             value={inputPrompt}
             onChange={e => setInputPrompt(e.target.value)}

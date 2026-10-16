@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import html2canvas from 'html2canvas';
 import { Booking, Room, Property } from '../../types';
 import {
   formatCurrency,
@@ -6,7 +7,7 @@ import {
   getBookingRoomNames,
   getWhatsAppShareUrl
 } from '../../utils/bookingUtils';
-import { Printer, MessageSquare, Share2, Check, X, FileText, Receipt, Building2, MapPin, Phone, Mail, LogOut } from 'lucide-react';
+import { Printer, MessageSquare, Share2, Check, X, FileText, Receipt, Building2, MapPin, Phone, Mail, LogOut, Image, Download, Sparkles, Loader2 } from 'lucide-react';
 
 interface BookingBillModalProps {
   booking: Booking;
@@ -24,6 +25,9 @@ export const BookingBillModal: React.FC<BookingBillModalProps> = ({
   onClose
 }) => {
   const [copied, setCopied] = useState<boolean>(false);
+  const [generatingImage, setGeneratingImage] = useState<boolean>(false);
+  const [imageCopied, setImageCopied] = useState<boolean>(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // Find associated property
   const currentProperty = properties.find(p => p.id === (booking.propertyId || 'p-nohshring')) || {
@@ -38,7 +42,9 @@ export const BookingBillModal: React.FC<BookingBillModalProps> = ({
   const roomSubtotal = (booking.baseRatePerNight || 0) * (booking.nights || 1);
   const extraBedTotal = (booking.extraBedCount || 0) * (booking.extraBedRatePerNight || 500) * (booking.nights || 1);
   const fbTotal = booking.foodAndBeverageCharges || 0;
-  const subtotal = roomSubtotal + extraBedTotal + fbTotal;
+  const kgTotal = booking.kitchenAndGasCharges || 0;
+  const miscTotal = booking.miscellaneousExpenses || 0;
+  const subtotal = roomSubtotal + extraBedTotal + fbTotal + kgTotal + miscTotal;
   const discount = booking.discountAmount || 0;
   const taxableValue = Math.max(0, subtotal - discount);
   const taxAmount = booking.taxAmount || 0;
@@ -57,6 +63,13 @@ export const BookingBillModal: React.FC<BookingBillModalProps> = ({
         .join('\n');
     }
 
+    let kgItemsSummary = '';
+    if (booking.kitchenAndGasItems && booking.kitchenAndGasItems.length > 0) {
+      kgItemsSummary = booking.kitchenAndGasItems
+        .map(i => `   • ${i.name} (${i.days || 1} day[s]) = ${formatCurrency(i.amount)}`)
+        .join('\n');
+    }
+
     return `🧾 *${currentProperty.name.toUpperCase()} - OFFICIAL TAX INVOICE & BILL*
 Invoice No: ${invoiceNumber}
 Date: ${todayDateStr}
@@ -70,7 +83,7 @@ Stay Period: ${formatDateReadable(booking.checkInDate)} to ${formatDateReadable(
 ----------------------------------
 *BILL PARTICULAR BREAKDOWN:*
 1. Room Stay Charge: ${formatCurrency(roomSubtotal)} (${booking.nights} Nights)
-${booking.extraBedCount && booking.extraBedCount > 0 ? `2. Extra Bed (${booking.extraBedCount} Beds): ${formatCurrency(extraBedTotal)}\n` : ''}${fbTotal > 0 ? `3. Food & Beverages / Room Service: ${formatCurrency(fbTotal)}\n${fbItemsSummary}\n` : ''}----------------------------------
+${booking.extraBedCount && booking.extraBedCount > 0 ? `2. Extra Bed (${booking.extraBedCount} Beds): ${formatCurrency(extraBedTotal)}\n` : ''}${fbTotal > 0 ? `3. Food & Beverages / Room Service: ${formatCurrency(fbTotal)}\n${fbItemsSummary}\n` : ''}${kgTotal > 0 ? `4. Kitchen & Gas Equipment Rental: ${formatCurrency(kgTotal)}\n${kgItemsSummary}\n` : ''}${miscTotal > 0 ? `5. Miscellaneous/Damages: ${formatCurrency(miscTotal)}${booking.miscellaneousExpensesNotes ? ` (${booking.miscellaneousExpensesNotes})` : ''}\n` : ''}----------------------------------
 Subtotal: ${formatCurrency(subtotal)}
 ${discount > 0 ? `Discount Applied: -${formatCurrency(discount)}\n` : ''}GST (5%): ${booking.isGstExempt ? 'Waived (0%)' : formatCurrency(taxAmount)}
 *GRAND TOTAL BILL:* ${formatCurrency(grandTotal)}
@@ -88,9 +101,214 @@ For queries call: ${currentProperty.phone}`;
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleShareWhatsApp = () => {
+  const handleShareWhatsAppText = () => {
     const text = generateInvoiceShareText();
     window.open(getWhatsAppShareUrl(booking.guestMobile, text), '_blank');
+  };
+
+  // Render high-definition offscreen clone for full unclipped page capture
+  const generateBillCanvas = async (): Promise<HTMLCanvasElement | null> => {
+    const invoiceElement = document.getElementById('print-tax-invoice');
+    if (!invoiceElement) return null;
+
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '780px'; // High quality standard width for folio bill layout
+    container.style.backgroundColor = '#ffffff';
+    container.style.zIndex = '-9999';
+
+    const clone = invoiceElement.cloneNode(true) as HTMLElement;
+    clone.style.maxHeight = 'none';
+    clone.style.height = 'auto';
+    clone.style.overflow = 'visible';
+    clone.style.padding = '20px';
+
+    container.appendChild(clone);
+    document.body.appendChild(container);
+
+    try {
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        windowWidth: 1024,
+        onclone: (clonedDoc, clonedEl) => {
+          // 1. Clean style elements that declare oklch variables or rules in cloned doc
+          const styleTags = clonedDoc.querySelectorAll('style');
+          styleTags.forEach((style) => {
+            if (style.innerText && style.innerText.includes('oklch')) {
+              style.innerText = style.innerText.replace(/oklch\([^)]+\)/gi, 'rgb(30, 41, 59)');
+            }
+          });
+
+          // 2. Convert or inline computed RGB colors on all nodes
+          const canvasCtx = document.createElement('canvas').getContext('2d');
+          const resolveColor = (colorStr: string): string => {
+            if (!colorStr || !colorStr.includes('oklch')) return colorStr;
+            if (canvasCtx) {
+              try {
+                canvasCtx.fillStyle = '#000000';
+                canvasCtx.fillStyle = colorStr;
+                const resolved = canvasCtx.fillStyle;
+                if (resolved && !resolved.includes('oklch')) {
+                  return resolved;
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
+            return 'rgb(30, 41, 59)';
+          };
+
+          const targetNodes = [clonedEl, ...Array.from(clonedEl.querySelectorAll('*'))] as HTMLElement[];
+          targetNodes.forEach((el) => {
+            try {
+              const computed = window.getComputedStyle(el);
+              const colorProps = ['color', 'backgroundColor', 'borderColor', 'outlineColor', 'fill', 'stroke'];
+              colorProps.forEach((prop) => {
+                const val = computed.getPropertyValue(prop);
+                if (val && val.includes('oklch')) {
+                  el.style.setProperty(prop, resolveColor(val), 'important');
+                }
+              });
+
+              // Clean inline CSS variables with oklch
+              if (el.style) {
+                for (let i = el.style.length - 1; i >= 0; i--) {
+                  const styleName = el.style[i];
+                  if (styleName && styleName.startsWith('--')) {
+                    const varVal = el.style.getPropertyValue(styleName);
+                    if (varVal && varVal.includes('oklch')) {
+                      el.style.removeProperty(styleName);
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // non-fatal
+            }
+          });
+        }
+      });
+      return canvas;
+    } catch (err) {
+      console.error('Error generating bill canvas:', err);
+      return null;
+    } finally {
+      if (document.body.contains(container)) {
+        document.body.removeChild(container);
+      }
+    }
+  };
+
+  // Helper to trigger browser file download via Blob URL
+  const triggerBlobDownload = (blob: Blob, filename: string) => {
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+  };
+
+  const handleDownloadBillImage = async () => {
+    setGeneratingImage(true);
+    try {
+      const canvas = await generateBillCanvas();
+      if (!canvas) return;
+
+      const dataUrl = canvas.toDataURL('image/png');
+      setPreviewImageUrl(dataUrl);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const fileName = `Tax-Invoice-${booking.bookingNumber}-${booking.guestName.replace(/\s+/g, '_')}.png`;
+          triggerBlobDownload(blob, fileName);
+        }
+      }, 'image/png');
+    } catch (err) {
+      console.error('Error downloading invoice image:', err);
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  const handleShareVisualBillWhatsApp = async () => {
+    setGeneratingImage(true);
+    try {
+      const canvas = await generateBillCanvas();
+      if (!canvas) {
+        handleShareWhatsAppText();
+        return;
+      }
+
+      const dataUrl = canvas.toDataURL('image/png');
+      setPreviewImageUrl(dataUrl);
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/png')
+      );
+
+      if (!blob) {
+        handleShareWhatsAppText();
+        setGeneratingImage(false);
+        return;
+      }
+
+      const fileName = `Tax-Invoice-${booking.bookingNumber}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+      const text = generateInvoiceShareText();
+
+      // 1. Check if browser supports Web Share API with Files (Mobile Chrome/Safari/WhatsApp)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: `${currentProperty.name} Tax Invoice - ${invoiceNumber}`,
+            text: text,
+            files: [file]
+          });
+          setGeneratingImage(false);
+          return;
+        } catch (shareErr) {
+          console.warn('WebShare cancelled or failed, falling back:', shareErr);
+        }
+      }
+
+      // 2. Fallback for Desktop/Browsers without File WebShare:
+      let imageCopiedToClipboard = false;
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          imageCopiedToClipboard = true;
+          setImageCopied(true);
+          setTimeout(() => setImageCopied(false), 4000);
+        }
+      } catch (clipboardErr) {
+        console.warn('Clipboard image write non-fatal:', clipboardErr);
+      }
+
+      // Trigger automatic file download
+      triggerBlobDownload(blob, `Tax-Invoice-${booking.bookingNumber}-${booking.guestName.replace(/\s+/g, '_')}.png`);
+
+      // Open WhatsApp with prefilled text
+      const noteMsg = `${text}\n\n📸 *VISUAL BILL IMAGE:* Full-color invoice page image ${imageCopiedToClipboard ? 'copied to clipboard & downloaded' : 'downloaded to device'}! You can also view/save the visual bill directly in the preview modal.`;
+      
+      window.open(getWhatsAppShareUrl(booking.guestMobile, noteMsg), '_blank');
+
+    } catch (err) {
+      console.error('Error generating image for WhatsApp share:', err);
+      handleShareWhatsAppText();
+    } finally {
+      setGeneratingImage(false);
+    }
   };
 
   return (
@@ -245,6 +463,53 @@ For queries call: ${currentProperty.phone}`;
                     <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(fbTotal)}</td>
                   </tr>
                 ) : null}
+
+                {/* 4. Kitchen & Gas Equipments if any */}
+                {kgTotal > 0 ? (
+                  <tr>
+                    <td className="p-2.5 text-center font-bold text-slate-500">
+                      {(booking.extraBedCount && booking.extraBedCount > 0 ? 1 : 0) + (fbTotal > 0 ? 1 : 0) + 2}
+                    </td>
+                    <td className="p-2.5">
+                      <p className="font-bold text-slate-900">Kitchen & Gas Equipment Rental</p>
+                      {booking.kitchenAndGasItems && booking.kitchenAndGasItems.length > 0 ? (
+                        <div className="mt-1 space-y-0.5 text-[10px] text-slate-600 bg-orange-50/60 p-2 rounded border border-orange-100">
+                          {booking.kitchenAndGasItems.map((item, i) => (
+                            <div key={item.id || i} className="flex justify-between">
+                              <span>• {item.name} ({item.days || 1} day[s] @ {formatCurrency(item.price)})</span>
+                              <span className="font-semibold">{formatCurrency(item.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-500">Consolidated Kitchen & Gas Charges</p>
+                      )}
+                    </td>
+                    <td className="p-2.5 text-center font-semibold text-slate-700">
+                      {booking.kitchenAndGasItems ? `${booking.kitchenAndGasItems.length} Rental(s)` : '1 Rental'}
+                    </td>
+                    <td className="p-2.5 text-right text-slate-700">—</td>
+                    <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(kgTotal)}</td>
+                  </tr>
+                ) : null}
+
+                {/* 5. Miscellaneous/Damages if any */}
+                {miscTotal > 0 ? (
+                  <tr>
+                    <td className="p-2.5 text-center font-bold text-slate-500">
+                      {(booking.extraBedCount && booking.extraBedCount > 0 ? 1 : 0) + (fbTotal > 0 ? 1 : 0) + (kgTotal > 0 ? 1 : 0) + 2}
+                    </td>
+                    <td className="p-2.5">
+                      <p className="font-bold text-slate-900">Miscellaneous/Damages</p>
+                      <p className="text-[10px] text-slate-500">
+                        {booking.miscellaneousExpensesNotes || 'Incidental expenses / damages fee'}
+                      </p>
+                    </td>
+                    <td className="p-2.5 text-center font-semibold text-slate-700">1 Charge</td>
+                    <td className="p-2.5 text-right text-slate-700">—</td>
+                    <td className="p-2.5 text-right font-bold text-slate-900">{formatCurrency(miscTotal)}</td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -301,6 +566,15 @@ For queries call: ${currentProperty.phone}`;
             <p>3. This is a computer-generated tax invoice. Signature not required.</p>
           </div>
 
+          {imageCopied && (
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-xl flex items-center justify-between animate-in fade-in">
+              <span className="flex items-center gap-1.5 font-bold">
+                <Check className="w-4 h-4 text-emerald-600" />
+                Full Visual Bill Image copied to clipboard & downloaded! Paste (Ctrl+V) in WhatsApp.
+              </span>
+            </div>
+          )}
+
         </div>
 
         {/* Footer Action Bar */}
@@ -318,39 +592,133 @@ For queries call: ${currentProperty.phone}`;
             </button>
           )}
 
+          {/* Primary Visual Bill Share on WhatsApp */}
           <button
-            onClick={handleShareWhatsApp}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+            onClick={handleShareVisualBillWhatsApp}
+            disabled={generatingImage}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-70 text-white text-xs font-extrabold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition"
+            title="Generates high-res visual page image with colors and shares on WhatsApp"
           >
-            <MessageSquare className="w-4 h-4" /> Share Bill on WhatsApp
-          </button>
-
-          <button
-            onClick={handleCopyInvoice}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition"
-          >
-            {copied ? (
+            {generatingImage ? (
               <>
-                <Check className="w-4 h-4 text-emerald-600" />
-                <span className="text-emerald-700">Bill Copied!</span>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Capturing Visual Bill...</span>
               </>
             ) : (
               <>
-                <Share2 className="w-4 h-4 text-slate-600" />
-                <span>Copy Invoice Text</span>
+                <MessageSquare className="w-4 h-4 fill-white" />
+                <Image className="w-3.5 h-3.5 text-amber-300" />
+                <span>Share Visual Bill on WhatsApp</span>
               </>
             )}
           </button>
 
+          {/* Download PNG Bill Image */}
+          <button
+            onClick={handleDownloadBillImage}
+            disabled={generatingImage}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition"
+            title="Download crisp PNG image of the full colored bill"
+          >
+            <Download className="w-4 h-4 text-slate-600" />
+            <span>Download PNG</span>
+          </button>
+
+          {/* Copy Text Invoice */}
+          <button
+            onClick={handleCopyInvoice}
+            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer transition"
+            title="Copy plain text invoice to clipboard"
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-700">Text Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4 text-slate-500" />
+                <span>Copy Text</span>
+              </>
+            )}
+          </button>
+
+          {/* Print Invoice */}
           <button
             onClick={() => window.print()}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition"
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition"
           >
-            <Printer className="w-4 h-4" /> Print Invoice
+            <Printer className="w-4 h-4" /> Print
           </button>
         </div>
 
       </div>
+
+      {/* Visual Bill Image Preview Modal (for direct Mobile/Laptop save & view) */}
+      {previewImageUrl && (
+        <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-4 sm:p-5 shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div className="flex items-center space-x-2">
+                <div className="p-1.5 bg-emerald-600 text-white rounded-lg">
+                  <Image className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Full Visual Bill Image</h4>
+                  <p className="text-[11px] text-slate-500">Page view with exact colors & breakdown</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewImageUrl(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Generated Image Container */}
+            <div className="flex-1 overflow-y-auto bg-slate-100 p-2 rounded-xl flex items-center justify-center border border-slate-200">
+              <img
+                src={previewImageUrl}
+                alt="Tax Invoice Visual Bill"
+                className="max-h-[60vh] w-auto object-contain rounded-lg shadow-md border border-white"
+              />
+            </div>
+
+            <p className="text-[11px] text-slate-500 text-center bg-amber-50 border border-amber-200/80 p-2 rounded-lg">
+              📲 <strong>Mobile User Tip:</strong> Touch & hold on the image above to save directly to Photos or copy into WhatsApp/Messages!
+            </p>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+              <a
+                href={previewImageUrl}
+                download={`Tax-Invoice-${booking.bookingNumber}-${booking.guestName.replace(/\s+/g, '_')}.png`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download / Open Image</span>
+              </a>
+
+              <button
+                onClick={handleShareWhatsAppText}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                <span>Open WhatsApp</span>
+              </button>
+
+              <button
+                onClick={() => setPreviewImageUrl(null)}
+                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

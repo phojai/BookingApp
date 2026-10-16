@@ -204,15 +204,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="bg-slate-900 text-white text-xs">
-                {/* Sticky Left Header */}
-                <th className="p-3.5 sticky left-0 z-20 bg-slate-900 min-w-[200px] border-r border-slate-800">
+                {/* Sticky Left Header - Reduced by 40% on mobile (200px -> 120px) */}
+                <th className="p-2 sm:p-3.5 sticky left-0 z-20 bg-slate-900 w-[120px] min-w-[120px] max-w-[120px] sm:w-auto sm:min-w-[200px] sm:max-w-none border-r border-slate-800">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold">Room</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Capacity / Rate</span>
+                    <span className="font-bold text-xs sm:text-sm">Room</span>
+                    <span className="hidden sm:inline text-[10px] text-slate-400 font-normal">Capacity / Rate</span>
                   </div>
                 </th>
 
-                {/* Date Columns */}
+                {/* Date Columns (Booking Columns) - Reduced by 40% on mobile (85-95px -> 51-57px) */}
                 {dates.map(dateStr => {
                   const d = parseYMD(dateStr);
                   const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
@@ -223,14 +223,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   return (
                     <th
                       key={dateStr}
-                      className={`p-2 text-center min-w-[85px] max-w-[95px] border-r border-slate-800 ${
+                      className={`p-1 sm:p-2 text-center w-[51px] min-w-[51px] max-w-[57px] sm:w-auto sm:min-w-[85px] sm:max-w-[95px] border-r border-slate-800 ${
                         isToday ? 'bg-emerald-800/90 text-white font-extrabold' : 'bg-slate-900 text-slate-200'
                       }`}
                     >
-                      <div className="text-[10px] uppercase font-bold text-slate-400">{dayName}</div>
-                      <div className="text-sm font-bold">{dayNum} {monthName}</div>
+                      <div className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 leading-tight">{dayName}</div>
+                      <div className="text-xs sm:text-sm font-bold leading-tight">{dayNum} <span className="text-[10px] sm:text-xs font-normal sm:font-bold">{monthName}</span></div>
                       {isToday && (
-                        <div className="text-[9px] bg-emerald-400 text-slate-950 font-black rounded uppercase px-1 mt-0.5 inline-block">
+                        <div className="text-[8px] sm:text-[9px] bg-emerald-400 text-slate-950 font-black rounded uppercase px-0.5 sm:px-1 mt-0.5 inline-block">
                           Today
                         </div>
                       )}
@@ -243,35 +243,35 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <tbody className="divide-y divide-slate-200 text-xs">
               {matrix.map(({ room, days }) => (
                 <tr key={room.id} className="hover:bg-slate-50/80 transition">
-                  {/* Sticky Room Label */}
-                  <td className="p-3 sticky left-0 z-10 bg-white border-r border-slate-200 shadow-sm min-w-[200px]">
+                  {/* Sticky Room Label - Reduced by 40% on mobile (200px -> 120px) */}
+                  <td className="p-2 sm:p-3 sticky left-0 z-10 bg-white border-r border-slate-200 shadow-sm w-[120px] min-w-[120px] max-w-[120px] sm:w-auto sm:min-w-[200px] sm:max-w-none">
                     <div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 text-xs sm:text-sm">{room.name}</span>
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-bold rounded-md text-[11px]">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-slate-800 text-xs sm:text-sm truncate" title={room.name}>{room.name}</span>
+                        <span className="px-1.5 sm:px-2 py-0.5 bg-slate-100 text-slate-700 font-bold rounded-md text-[10px] sm:text-[11px] shrink-0">
                           #{room.roomNumber}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
-                        <span className="flex items-center gap-1">
-                          <User className="w-3 h-3 text-slate-400" /> Max {room.capacity}
+                      <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1">
+                        <span className="flex items-center gap-0.5 sm:gap-1">
+                          <User className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-400 shrink-0" /> {room.capacity}p
                         </span>
-                        <span className="font-semibold text-emerald-700">
-                          {formatCurrency(room.pricePerNight)}/nt
+                        <span className="font-semibold text-emerald-700 text-[10px] sm:text-[11px]">
+                          {formatCurrency(room.pricePerNight)}<span className="hidden sm:inline">/nt</span>
                         </span>
                       </div>
                     </div>
                   </td>
 
-                  {/* Day Cells */}
+                  {/* Day Cells (Booking columns) - Reduced by 40% on mobile */}
                   {days.map(dayState => {
                     const { dateStr, type, booking, checkOutBooking, checkInBooking } = dayState;
 
                     if (type === 'deactivated') {
                       return (
-                        <td key={dateStr} className="p-1 border-r border-slate-200 bg-slate-100 text-slate-400 text-center">
-                          <div className="w-full h-[60px] flex items-center justify-center">
-                            <span className="text-[10px] font-medium text-slate-400">Offline</span>
+                        <td key={dateStr} className="p-0.5 sm:p-1 border-r border-slate-200 bg-slate-100 text-slate-400 text-center w-[51px] min-w-[51px] max-w-[57px] sm:w-auto sm:min-w-[85px] sm:max-w-[95px]">
+                          <div className="w-full h-[52px] sm:h-[60px] flex items-center justify-center">
+                            <span className="text-[9px] sm:text-[10px] font-medium text-slate-400">Offline</span>
                           </div>
                         </td>
                       );
@@ -279,14 +279,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                     if (type === 'available') {
                       return (
-                        <td key={dateStr} className="p-1 border-r border-slate-200 text-center">
+                        <td key={dateStr} className="p-0.5 sm:p-1 border-r border-slate-200 text-center w-[51px] min-w-[51px] max-w-[57px] sm:w-auto sm:min-w-[85px] sm:max-w-[95px]">
                           <button
                             onClick={() => onSelectCellBooking(room, dateStr)}
-                            className="w-full h-[60px] rounded-xl bg-emerald-50/70 hover:bg-emerald-100 border border-emerald-200/60 text-emerald-700 transition flex flex-col items-center justify-center group cursor-pointer"
+                            className="w-full h-[52px] sm:h-[60px] rounded-lg sm:rounded-xl bg-emerald-50/70 hover:bg-emerald-100 border border-emerald-200/60 text-emerald-700 transition flex flex-col items-center justify-center group cursor-pointer p-0.5"
                             title={`Click to book ${room.name} on ${formatDateReadable(dateStr)}`}
                           >
-                            <Plus className="w-4 h-4 text-emerald-600 opacity-60 group-hover:opacity-100 group-hover:scale-110 transition" />
-                            <span className="text-[9px] font-semibold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
+                            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 opacity-60 group-hover:opacity-100 group-hover:scale-110 transition" />
+                            <span className="text-[8px] sm:text-[9px] font-semibold text-emerald-600 sm:opacity-0 sm:group-hover:opacity-100 transition">
                               Book
                             </span>
                           </button>
@@ -300,28 +300,28 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       const inB = checkInBooking || booking;
 
                       return (
-                        <td key={dateStr} className="p-1 border-r border-slate-200 text-center">
-                          <div className="w-full h-[60px] flex flex-col justify-between gap-1">
+                        <td key={dateStr} className="p-0.5 sm:p-1 border-r border-slate-200 text-center w-[51px] min-w-[51px] max-w-[57px] sm:w-auto sm:min-w-[85px] sm:max-w-[95px]">
+                          <div className="w-full h-[52px] sm:h-[60px] flex flex-col justify-between gap-0.5 sm:gap-1">
                             {/* Top Row: Check-Out */}
                             <button
                               type="button"
                               onClick={() => outB && onViewBookingDetails(outB)}
-                              className="w-full h-[27px] rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-bold px-1.5 py-0.5 text-left flex items-center justify-between text-[10px] overflow-hidden cursor-pointer shadow-2xs transition"
+                              className="w-full h-[25px] sm:h-[27px] rounded sm:rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-bold px-1 sm:px-1.5 py-0.5 text-left flex items-center justify-between text-[9px] sm:text-[10px] overflow-hidden cursor-pointer shadow-2xs transition"
                               title={`Check-Out: ${outB?.guestName} (${outB?.nights}N)`}
                             >
-                              <span className="text-[8px] uppercase font-black bg-sky-700/80 px-1 py-0.2 rounded text-sky-100 shrink-0">OUT</span>
-                              <span className="truncate font-bold ml-1 text-right">{outB?.guestName}</span>
+                              <span className="text-[7px] sm:text-[8px] uppercase font-black bg-sky-700/80 px-0.5 sm:px-1 py-0.2 rounded text-sky-100 shrink-0">OUT</span>
+                              <span className="truncate font-bold ml-0.5 sm:ml-1 text-right">{outB?.guestName}</span>
                             </button>
 
                             {/* Bottom Row: Check-In */}
                             <button
                               type="button"
                               onClick={() => inB && onViewBookingDetails(inB)}
-                              className="w-full h-[27px] rounded-lg bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold px-1.5 py-0.5 text-left flex items-center justify-between text-[10px] overflow-hidden cursor-pointer shadow-2xs transition"
+                              className="w-full h-[25px] sm:h-[27px] rounded sm:rounded-lg bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold px-1 sm:px-1.5 py-0.5 text-left flex items-center justify-between text-[9px] sm:text-[10px] overflow-hidden cursor-pointer shadow-2xs transition"
                               title={`Check-In: ${inB?.guestName} (${inB?.nights}N)`}
                             >
-                              <span className="text-[8px] uppercase font-black bg-amber-600/30 px-1 py-0.2 rounded text-amber-950 shrink-0">IN</span>
-                              <span className="truncate font-bold ml-1 text-right">{inB?.guestName}</span>
+                              <span className="text-[7px] sm:text-[8px] uppercase font-black bg-amber-600/30 px-0.5 sm:px-1 py-0.2 rounded text-amber-950 shrink-0">IN</span>
+                              <span className="truncate font-bold ml-0.5 sm:ml-1 text-right">{inB?.guestName}</span>
                             </button>
                           </div>
                         </td>
@@ -333,28 +333,28 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       const outB = checkOutBooking || booking;
 
                       return (
-                        <td key={dateStr} className="p-1 border-r border-slate-200 text-center">
-                          <div className="w-full h-[60px] flex flex-col justify-between gap-1">
+                        <td key={dateStr} className="p-0.5 sm:p-1 border-r border-slate-200 text-center w-[51px] min-w-[51px] max-w-[57px] sm:w-auto sm:min-w-[85px] sm:max-w-[95px]">
+                          <div className="w-full h-[52px] sm:h-[60px] flex flex-col justify-between gap-0.5 sm:gap-1">
                             {/* Top Row: Check-Out */}
                             <button
                               type="button"
                               onClick={() => outB && onViewBookingDetails(outB)}
-                              className="w-full h-[27px] rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-bold px-1.5 py-0.5 text-left flex items-center justify-between text-[10px] overflow-hidden cursor-pointer shadow-2xs transition"
+                              className="w-full h-[25px] sm:h-[27px] rounded sm:rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-bold px-1 sm:px-1.5 py-0.5 text-left flex items-center justify-between text-[9px] sm:text-[10px] overflow-hidden cursor-pointer shadow-2xs transition"
                               title={`Check-Out: ${outB?.guestName}`}
                             >
-                              <span className="text-[8px] uppercase font-black bg-sky-700/80 px-1 py-0.2 rounded text-sky-100 shrink-0">OUT</span>
-                              <span className="truncate font-bold ml-1 text-right">{outB?.guestName}</span>
+                              <span className="text-[7px] sm:text-[8px] uppercase font-black bg-sky-700/80 px-0.5 sm:px-1 py-0.2 rounded text-sky-100 shrink-0">OUT</span>
+                              <span className="truncate font-bold ml-0.5 sm:ml-1 text-right">{outB?.guestName}</span>
                             </button>
 
                             {/* Bottom Row: Book New Check-In */}
                             <button
                               type="button"
                               onClick={() => onSelectCellBooking(room, dateStr)}
-                              className="w-full h-[27px] rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 text-emerald-700 font-bold px-1.5 py-0.5 flex items-center justify-center gap-1 text-[10px] transition cursor-pointer"
+                              className="w-full h-[25px] sm:h-[27px] rounded sm:rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 text-emerald-700 font-bold px-1 sm:px-1.5 py-0.5 flex items-center justify-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] transition cursor-pointer"
                               title={`Click to book new check-in for ${room.name} on ${formatDateReadable(dateStr)}`}
                             >
-                              <Plus className="w-3 h-3 text-emerald-600 shrink-0" />
-                              <span className="text-[9px] font-bold">Book In</span>
+                              <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 shrink-0" />
+                              <span className="text-[8px] sm:text-[9px] font-bold">Book</span>
                             </button>
                           </div>
                         </td>
@@ -366,17 +366,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       const inB = checkInBooking || booking;
 
                       return (
-                        <td key={dateStr} className="p-1 border-r border-slate-200 text-center">
+                        <td key={dateStr} className="p-0.5 sm:p-1 border-r border-slate-200 text-center w-[51px] min-w-[51px] max-w-[57px] sm:w-auto sm:min-w-[85px] sm:max-w-[95px]">
                           <button
                             onClick={() => inB && onViewBookingDetails(inB)}
-                            className="w-full h-[60px] rounded-xl p-1.5 bg-amber-400 hover:bg-amber-500 text-slate-950 border border-amber-500 font-bold transition text-left flex flex-col justify-between overflow-hidden cursor-pointer shadow-2xs"
+                            className="w-full h-[52px] sm:h-[60px] rounded-lg sm:rounded-xl p-1 sm:p-1.5 bg-amber-400 hover:bg-amber-500 text-slate-950 border border-amber-500 font-bold transition text-left flex flex-col justify-between overflow-hidden cursor-pointer shadow-2xs"
                             title={`Check-In: ${inB?.guestName}`}
                           >
-                            <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-amber-950">
-                              <span>Check-In</span>
-                              <span className="text-[8px] bg-amber-600/30 px-1 py-0.2 rounded font-black">IN</span>
+                            <div className="flex items-center justify-between text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-amber-950">
+                              <span className="truncate">Check-In</span>
+                              <span className="text-[7px] sm:text-[8px] bg-amber-600/30 px-0.5 sm:px-1 py-0.2 rounded font-black shrink-0">IN</span>
                             </div>
-                            <div className="text-[10px] font-bold truncate leading-tight">
+                            <div className="text-[9px] sm:text-[10px] font-bold truncate leading-tight">
                               {inB?.guestName}
                             </div>
                           </button>
@@ -386,16 +386,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                     // Booked (Stay)
                     return (
-                      <td key={dateStr} className="p-1 border-r border-slate-200 text-center">
+                      <td key={dateStr} className="p-0.5 sm:p-1 border-r border-slate-200 text-center w-[51px] min-w-[51px] max-w-[57px] sm:w-auto sm:min-w-[85px] sm:max-w-[95px]">
                         <button
                           onClick={() => booking && onViewBookingDetails(booking)}
-                          className="w-full h-[60px] rounded-xl p-1.5 bg-rose-500 hover:bg-rose-600 text-white border border-rose-600 font-bold transition text-left flex flex-col justify-between overflow-hidden cursor-pointer shadow-2xs"
+                          className="w-full h-[52px] sm:h-[60px] rounded-lg sm:rounded-xl p-1 sm:p-1.5 bg-rose-500 hover:bg-rose-600 text-white border border-rose-600 font-bold transition text-left flex flex-col justify-between overflow-hidden cursor-pointer shadow-2xs"
                           title={`Guest: ${booking?.guestName}\nStatus: ${booking?.status}\nNights: ${booking?.nights}`}
                         >
-                          <div className="flex items-center justify-between text-[9px] font-bold opacity-90">
+                          <div className="flex items-center justify-between text-[8px] sm:text-[9px] font-bold opacity-90">
                             <span className="truncate">Booked</span>
                           </div>
-                          <div className="text-[10px] font-bold truncate leading-tight">
+                          <div className="text-[9px] sm:text-[10px] font-bold truncate leading-tight">
                             {booking?.guestName}
                           </div>
                         </button>

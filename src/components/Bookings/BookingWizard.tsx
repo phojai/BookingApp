@@ -30,7 +30,8 @@ import {
   MessageSquare,
   Percent,
   Tag,
-  BadgePercent
+  BadgePercent,
+  Receipt
 } from 'lucide-react';
 
 interface BookingWizardProps {
@@ -77,6 +78,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   const [removeGst, setRemoveGst] = useState<boolean>(false);
   const [extraBedCount, setExtraBedCount] = useState<number>(0);
   const [extraBedRatePerNight, setExtraBedRatePerNight] = useState<number>(500);
+  const [kitchenAndGasCharges, setKitchenAndGasCharges] = useState<number>(0);
+  const [kitchenAndGasNotes, setKitchenAndGasNotes] = useState<string>('');
+  const [miscellaneousExpenses, setMiscellaneousExpenses] = useState<number>(0);
+  const [miscellaneousExpensesNotes, setMiscellaneousExpensesNotes] = useState<string>('');
   const [specialRequests, setSpecialRequests] = useState<string>('');
 
   // Selected Rooms (allows 1 guest to book multiple rooms)
@@ -120,7 +125,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
 
   const roomSubtotal = combinedRatePerNight * nights;
   const extraBedTotal = extraBedCount * extraBedRatePerNight * nights;
-  const subtotal = roomSubtotal + extraBedTotal;
+  const subtotal = roomSubtotal + extraBedTotal + kitchenAndGasCharges + miscellaneousExpenses;
   const standardGst = Math.round(subtotal * 0.05);
   const effectiveDiscount = Math.min(subtotal, discountAmount);
   const taxableAmount = Math.max(0, subtotal - effectiveDiscount);
@@ -196,6 +201,18 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       extraBedCount,
       extraBedRatePerNight,
       extraBedAmount: extraBedTotal,
+      kitchenAndGasCharges,
+      kitchenAndGasItems: kitchenAndGasCharges > 0 ? [{
+        id: `kg-${Date.now()}`,
+        name: kitchenAndGasNotes.trim() || 'LPG Gas & Kitchen Equipment Rental',
+        category: 'Gas Equipment',
+        price: Math.round(kitchenAndGasCharges / (nights || 1)),
+        qty: 1,
+        days: nights || 1,
+        amount: kitchenAndGasCharges
+      }] : [],
+      miscellaneousExpenses: miscellaneousExpenses > 0 ? miscellaneousExpenses : undefined,
+      miscellaneousExpensesNotes: miscellaneousExpensesNotes.trim() ? miscellaneousExpensesNotes.trim() : undefined,
       status: 'confirmed',
       bookingSource,
       paymentStatus: finalPaymentStatus,
@@ -282,11 +299,14 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </h3>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name *</label>
+                <label htmlFor="wizard_guest_name" className="block text-xs font-semibold text-slate-700 mb-1">Full Name *</label>
                 <div className="relative">
                   <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
+                    id="wizard_guest_name"
+                    name="guestName"
                     type="text"
+                    autoComplete="name"
                     value={guestName}
                     onChange={e => setGuestName(e.target.value)}
                     placeholder="e.g. Rahul Sharma"
@@ -296,11 +316,14 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile Number *</label>
+                <label htmlFor="wizard_guest_mobile" className="block text-xs font-semibold text-slate-700 mb-1">Mobile Number *</label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
+                    id="wizard_guest_mobile"
+                    name="guestMobile"
                     type="text"
+                    autoComplete="tel"
                     value={guestMobile}
                     onChange={e => setGuestMobile(e.target.value)}
                     placeholder="+91 98765 43210"
@@ -310,11 +333,14 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                <label htmlFor="wizard_guest_email" className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
+                    id="wizard_guest_email"
+                    name="guestEmail"
                     type="email"
+                    autoComplete="email"
                     value={guestEmail}
                     onChange={e => setGuestEmail(e.target.value)}
                     placeholder="rahul@example.com"
@@ -324,8 +350,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Booking Source</label>
+                <label htmlFor="wizard_booking_source" className="block text-xs font-semibold text-slate-700 mb-1">Booking Source</label>
                 <select
+                  id="wizard_booking_source"
+                  name="bookingSource"
                   value={bookingSource}
                   onChange={e => setBookingSource(e.target.value as BookingSource)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
@@ -346,8 +374,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Check-in Date *</label>
+                  <label htmlFor="wizard_check_in_date" className="block text-xs font-semibold text-slate-700 mb-1">Check-in Date *</label>
                   <input
+                    id="wizard_check_in_date"
+                    name="checkInDate"
                     type="date"
                     value={checkInDate}
                     onChange={e => setCheckInDate(e.target.value)}
@@ -356,8 +386,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Check-out Date *</label>
+                  <label htmlFor="wizard_check_out_date" className="block text-xs font-semibold text-slate-700 mb-1">Check-out Date *</label>
                   <input
+                    id="wizard_check_out_date"
+                    name="checkOutDate"
                     type="date"
                     value={checkOutDate}
                     onChange={e => setCheckOutDate(e.target.value)}
@@ -367,9 +399,11 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Number of Guests</label>
+                <label htmlFor="wizard_number_of_guests" className="block text-xs font-semibold text-slate-700 mb-1">Number of Guests</label>
                 <div className="flex items-center space-x-3">
                   <input
+                    id="wizard_number_of_guests"
+                    name="numberOfGuests"
                     type="number"
                     min={0}
                     max={12}
@@ -400,7 +434,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               {/* Extra Bed Option */}
               <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  <label htmlFor="wizard_extra_bed_count" className="text-xs font-bold text-amber-900 flex items-center gap-1.5 cursor-pointer">
                     <BedDouble className="w-4 h-4 text-amber-600" />
                     <span>Extra Bed Option</span>
                   </label>
@@ -412,8 +446,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Extra Beds Required</label>
+                    <label htmlFor="wizard_extra_bed_count" className="block text-[11px] font-semibold text-slate-700 mb-1">Extra Beds Required</label>
                     <select
+                      id="wizard_extra_bed_count"
+                      name="extraBedCount"
                       value={extraBedCount}
                       onChange={e => setExtraBedCount(parseInt(e.target.value) || 0)}
                       className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-bold text-slate-800 outline-none cursor-pointer"
@@ -426,8 +462,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Rate per Bed / Night (₹)</label>
+                    <label htmlFor="wizard_extra_bed_rate" className="block text-[11px] font-semibold text-slate-700 mb-1">Rate per Bed / Night (₹)</label>
                     <input
+                      id="wizard_extra_bed_rate"
+                      name="extraBedRatePerNight"
                       type="number"
                       min={0}
                       value={extraBedRatePerNight || ''}
@@ -440,8 +478,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Special Requests / Notes</label>
+                <label htmlFor="wizard_special_requests" className="block text-xs font-semibold text-slate-700 mb-1">Special Requests / Notes</label>
                 <textarea
+                  id="wizard_special_requests"
+                  name="specialRequests"
                   rows={3}
                   value={specialRequests}
                   onChange={e => setSpecialRequests(e.target.value)}
@@ -737,6 +777,26 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                   </div>
                 )}
 
+                {kitchenAndGasCharges > 0 && (
+                  <div className="flex justify-between text-orange-900 font-semibold bg-orange-50/80 px-2 py-1 rounded-lg border border-orange-200/60">
+                    <span className="flex items-center gap-1">
+                      <span>🔥</span>
+                      Kitchen & Gas Charges ({kitchenAndGasNotes || 'Equipment Rental'}):
+                    </span>
+                    <span>+{formatCurrency(kitchenAndGasCharges)}</span>
+                  </div>
+                )}
+
+                {miscellaneousExpenses > 0 && (
+                  <div className="flex justify-between text-violet-900 font-semibold bg-violet-50/80 px-2 py-1 rounded-lg border border-violet-200/60">
+                    <span className="flex items-center gap-1">
+                      <Receipt className="w-3.5 h-3.5 text-violet-600" />
+                      Miscellaneous/Damages ({miscellaneousExpensesNotes || 'Extra Services/Damages'}):
+                    </span>
+                    <span>+{formatCurrency(miscellaneousExpenses)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between font-bold text-slate-800 pt-1 border-t border-emerald-100">
                   <span>Subtotal:</span>
                   <span>{formatCurrency(subtotal)}</span>
@@ -759,6 +819,163 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                 <div className="pt-2 border-t border-emerald-200/80 flex justify-between text-sm font-extrabold text-slate-900">
                   <span>Total Amount Due:</span>
                   <span className="text-emerald-700">{formatCurrency(totalAmount)}</span>
+                </div>
+              </div>
+
+              {/* KITCHEN & GAS EQUIPMENT CHARGES */}
+              <div className="p-3 bg-white rounded-xl border border-orange-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>🔥</span>
+                    <span>Kitchen & Gas Equipment Rental (Optional)</span>
+                  </label>
+                  {kitchenAndGasCharges > 0 && (
+                    <span className="text-[10px] font-bold text-orange-800 bg-orange-100 px-2 py-0.5 rounded-full">
+                      +{formatCurrency(kitchenAndGasCharges)} Added
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label htmlFor="wizard_kitchen_charges" className="block text-[11px] font-semibold text-slate-600 mb-1">Equipment Charge (₹)</label>
+                    <input
+                      id="wizard_kitchen_charges"
+                      name="kitchenAndGasCharges"
+                      type="number"
+                      min={0}
+                      value={kitchenAndGasCharges || ''}
+                      onChange={e => {
+                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                        setKitchenAndGasCharges(val);
+                        const nextSub = roomSubtotal + extraBedTotal + val;
+                        const nextEff = Math.min(nextSub, discountAmount);
+                        const nextTax = removeGst ? 0 : Math.round(Math.max(0, nextSub - nextEff) * 0.05);
+                        setAdvanceAmount(Math.max(0, nextSub - nextEff + nextTax));
+                      }}
+                      placeholder="e.g. 300 / day"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 font-bold text-slate-800 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="wizard_kitchen_notes" className="block text-[11px] font-semibold text-slate-600 mb-1">Equipment Description</label>
+                    <input
+                      id="wizard_kitchen_notes"
+                      name="kitchenAndGasNotes"
+                      type="text"
+                      value={kitchenAndGasNotes}
+                      onChange={e => setKitchenAndGasNotes(e.target.value)}
+                      placeholder="e.g. LPG Cylinder + Cookware"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 text-slate-800 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Presets Buttons */}
+                <div className="flex flex-wrap items-center gap-1 pt-1">
+                  <span className="text-[10px] font-semibold text-slate-400 mr-1">Quick Presets:</span>
+                  {[
+                    { label: 'LPG Gas (₹300/day)', val: 300 * nights, desc: 'LPG Gas Cylinder & Stove' },
+                    { label: 'Full Kitchen Set (₹500/day)', val: 500 * nights, desc: 'LPG Gas + Utensils & Cookware' },
+                    { label: 'BBQ Grill Set (₹500)', val: 500, desc: 'BBQ Grill & Charcoal Kit' },
+                    { label: 'Induction Cooktop (₹250/day)', val: 250 * nights, desc: 'Induction Cooktop & Steel Pots' }
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setKitchenAndGasCharges(p.val);
+                        setKitchenAndGasNotes(p.desc);
+                        const nextSub = roomSubtotal + extraBedTotal + p.val;
+                        const nextEff = Math.min(nextSub, discountAmount);
+                        const nextTax = removeGst ? 0 : Math.round(Math.max(0, nextSub - nextEff) * 0.05);
+                        setAdvanceAmount(Math.max(0, nextSub - nextEff + nextTax));
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-semibold bg-orange-50 hover:bg-orange-100 text-orange-900 border border-orange-200 rounded-md transition cursor-pointer"
+                    >
+                      + {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* MISCELLANEOUS / DAMAGES */}
+              <div className="p-3 bg-white rounded-xl border border-violet-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="wizard_misc_expenses" className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Receipt className="w-3.5 h-3.5 text-violet-600" />
+                    <span>Miscellaneous/Damages (Optional)</span>
+                  </label>
+                  {miscellaneousExpenses > 0 && (
+                    <span className="text-[10px] font-bold text-violet-800 bg-violet-100 px-2 py-0.5 rounded-full">
+                      +{formatCurrency(miscellaneousExpenses)} Added
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label htmlFor="wizard_misc_expenses" className="block text-[11px] font-semibold text-slate-600 mb-1">Miscellaneous/Damages (₹)</label>
+                    <input
+                      id="wizard_misc_expenses"
+                      name="miscellaneousExpenses"
+                      type="number"
+                      min={0}
+                      value={miscellaneousExpenses || ''}
+                      onChange={e => {
+                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                        setMiscellaneousExpenses(val);
+                        const nextSub = roomSubtotal + extraBedTotal + kitchenAndGasCharges + val;
+                        const nextEff = Math.min(nextSub, discountAmount);
+                        const nextTax = removeGst ? 0 : Math.round(Math.max(0, nextSub - nextEff) * 0.05);
+                        setAdvanceAmount(Math.max(0, nextSub - nextEff + nextTax));
+                      }}
+                      placeholder="e.g. 500"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 font-bold text-slate-800 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="wizard_misc_notes" className="block text-[11px] font-semibold text-slate-600 mb-1">Reason / Expense Description</label>
+                    <input
+                      id="wizard_misc_notes"
+                      name="miscellaneousExpensesNotes"
+                      type="text"
+                      value={miscellaneousExpensesNotes}
+                      onChange={e => setMiscellaneousExpensesNotes(e.target.value)}
+                      placeholder="e.g. Laundry, Broken glass, Linen damage, Cab"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 text-slate-800 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Presets Buttons */}
+                <div className="flex flex-wrap items-center gap-1 pt-1">
+                  <span className="text-[10px] font-semibold text-slate-400 mr-1">Quick Presets:</span>
+                  {[
+                    { label: 'Laundry (₹200)', val: 200, desc: 'Laundry & Ironing' },
+                    { label: 'Bonfire (₹500)', val: 500, desc: 'Evening Bonfire & Firewood' },
+                    { label: 'Broken Glass/Item (₹300)', val: 300, desc: 'Room item breakage/damage' },
+                    { label: 'Towel/Linen Stain (₹500)', val: 500, desc: 'Linen damage/stain fee' },
+                    { label: 'Local Cab (₹800)', val: 800, desc: 'Sightseeing Cab Pickup' }
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setMiscellaneousExpenses(p.val);
+                        setMiscellaneousExpensesNotes(p.desc);
+                        const nextSub = roomSubtotal + extraBedTotal + kitchenAndGasCharges + p.val;
+                        const nextEff = Math.min(nextSub, discountAmount);
+                        const nextTax = removeGst ? 0 : Math.round(Math.max(0, nextSub - nextEff) * 0.05);
+                        setAdvanceAmount(Math.max(0, nextSub - nextEff + nextTax));
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-semibold bg-violet-50 hover:bg-violet-100 text-violet-900 border border-violet-200 rounded-md transition cursor-pointer"
+                    >
+                      + {p.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -790,8 +1007,10 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Discount Amount (₹)</label>
+                    <label htmlFor="wizard_discount_amount" className="block text-[11px] font-semibold text-slate-600 mb-1">Discount Amount (₹)</label>
                     <input
+                      id="wizard_discount_amount"
+                      name="discountAmount"
                       type="number"
                       min={0}
                       max={subtotal}
@@ -843,9 +1062,11 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Advance Amount Paid (₹)</label>
+                <label htmlFor="wizard_advance_amount" className="block text-xs font-semibold text-slate-700 mb-1">Advance Amount Paid (₹)</label>
                 <div className="relative mb-1.5">
                   <input
+                    id="wizard_advance_amount"
+                    name="advanceAmount"
                     type="number"
                     min={0}
                     max={totalAmount}
@@ -1023,7 +1244,11 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                   isGstExempt: removeGst,
                   extraBedCount,
                   extraBedRatePerNight,
-                  extraBedAmount: extraBedTotal
+                  extraBedAmount: extraBedTotal,
+                  kitchenAndGasCharges,
+                  kitchenAndGasItemsSummary: kitchenAndGasNotes,
+                  miscellaneousExpenses,
+                  miscellaneousNotes: miscellaneousExpensesNotes
                 });
                 window.open(getWhatsAppShareUrl(guestMobile, shareText), '_blank');
               }}
@@ -1051,7 +1276,11 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
                   isGstExempt: removeGst,
                   extraBedCount,
                   extraBedRatePerNight,
-                  extraBedAmount: extraBedTotal
+                  extraBedAmount: extraBedTotal,
+                  kitchenAndGasCharges,
+                  kitchenAndGasItemsSummary: kitchenAndGasNotes,
+                  miscellaneousExpenses,
+                  miscellaneousNotes: miscellaneousExpensesNotes
                 });
 
                 if (navigator.share) {

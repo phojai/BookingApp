@@ -7,7 +7,8 @@ import {
   calculateNights,
   getBookingRoomNames,
   generateBookingShareText,
-  getWhatsAppShareUrl
+  getWhatsAppShareUrl,
+  getTodayIST
 } from '../../utils/bookingUtils';
 import {
   Search,
@@ -32,10 +33,14 @@ import {
   ShieldAlert,
   Utensils,
   Receipt,
-  Coffee
+  Coffee,
+  Clock,
+  Flame,
+  ChefHat
 } from 'lucide-react';
 import { FoodAndBeverageModal } from './FoodAndBeverageModal';
 import { BookingBillModal } from './BookingBillModal';
+import { KitchenAndGasModal } from './KitchenAndGasModal';
 
 interface BookingListProps {
   rooms: Room[];
@@ -46,7 +51,6 @@ interface BookingListProps {
   onModifyBooking: (updatedBooking: Booking) => void;
   onCancelBooking: (bookingId: string, reason: string) => void;
   onNewBookingClick: () => void;
-  onClearAllBookings?: () => void;
 }
 
 export const BookingList: React.FC<BookingListProps> = ({
@@ -57,31 +61,29 @@ export const BookingList: React.FC<BookingListProps> = ({
   onCheckOut,
   onModifyBooking,
   onCancelBooking,
-  onNewBookingClick,
-  onClearAllBookings
+  onNewBookingClick
 }) => {
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('today');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Modals state
   const [selectedVoucherBooking, setSelectedVoucherBooking] = useState<Booking | null>(null);
   const [selectedFbBooking, setSelectedFbBooking] = useState<Booking | null>(null);
+  const [selectedKitchenAndGasBooking, setSelectedKitchenAndGasBooking] = useState<Booking | null>(null);
   const [selectedBillBooking, setSelectedBillBooking] = useState<Booking | null>(null);
   const [modifyModalBooking, setModifyModalBooking] = useState<Booking | null>(null);
   const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('Guest plans changed');
   const [copiedBookingId, setCopiedBookingId] = useState<string | null>(null);
 
-  // Admin Auth Modal State
-  const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
-  const [adminPinInput, setAdminPinInput] = useState<string>('');
-  const [adminPinError, setAdminPinError] = useState<string>('');
-
   const handleCopyShareText = (booking: Booking) => {
     const roomNames = getBookingRoomNames(booking, rooms);
     const adv = booking.advanceAmount !== undefined ? booking.advanceAmount : (booking.paymentStatus === 'Paid' ? booking.totalAmount : 0);
     const fbSummary = booking.foodAndBeverageItems && booking.foodAndBeverageItems.length > 0
       ? booking.foodAndBeverageItems.map(i => `${i.name} x${i.qty}`).join(', ')
+      : undefined;
+    const kgSummary = booking.kitchenAndGasItems && booking.kitchenAndGasItems.length > 0
+      ? booking.kitchenAndGasItems.map(i => `${i.name} (${i.days || 1}d)`).join(', ')
       : undefined;
 
     const shareText = generateBookingShareText({
@@ -102,7 +104,11 @@ export const BookingList: React.FC<BookingListProps> = ({
       extraBedRatePerNight: booking.extraBedRatePerNight,
       extraBedAmount: booking.extraBedAmount,
       foodAndBeverageCharges: booking.foodAndBeverageCharges,
-      foodAndBeverageItemsSummary: fbSummary
+      foodAndBeverageItemsSummary: fbSummary,
+      kitchenAndGasCharges: booking.kitchenAndGasCharges,
+      kitchenAndGasItemsSummary: kgSummary,
+      miscellaneousExpenses: booking.miscellaneousExpenses,
+      miscellaneousNotes: booking.miscellaneousExpensesNotes
     });
 
     if (navigator.share) {
@@ -122,6 +128,8 @@ export const BookingList: React.FC<BookingListProps> = ({
   };
 
   // Modify Form State
+  const [modGuestName, setModGuestName] = useState<string>('');
+  const [modGuestMobile, setModGuestMobile] = useState<string>('');
   const [modCheckIn, setModCheckIn] = useState<string>('');
   const [modCheckOut, setModCheckOut] = useState<string>('');
   const [modRoomIds, setModRoomIds] = useState<string[]>([]);
@@ -132,10 +140,15 @@ export const BookingList: React.FC<BookingListProps> = ({
   const [modExtraBedCount, setModExtraBedCount] = useState<number>(0);
   const [modExtraBedRatePerNight, setModExtraBedRatePerNight] = useState<number>(500);
   const [modFbCharges, setModFbCharges] = useState<number>(0);
+  const [modKitchenCharges, setModKitchenCharges] = useState<number>(0);
+  const [modMiscExpenses, setModMiscExpenses] = useState<number>(0);
+  const [modMiscNotes, setModMiscNotes] = useState<string>('');
   const [modError, setModError] = useState<string>('');
 
   const openModifyModal = (booking: Booking) => {
     setModifyModalBooking(booking);
+    setModGuestName(booking.guestName || '');
+    setModGuestMobile(booking.guestMobile || '');
     setModCheckIn(booking.checkInDate);
     setModCheckOut(booking.checkOutDate);
     const initialRoomIds = booking.roomIds && booking.roomIds.length > 0 ? booking.roomIds : [booking.roomId];
@@ -147,6 +160,9 @@ export const BookingList: React.FC<BookingListProps> = ({
     setModExtraBedCount(booking.extraBedCount || 0);
     setModExtraBedRatePerNight(booking.extraBedRatePerNight || 500);
     setModFbCharges(booking.foodAndBeverageCharges || 0);
+    setModKitchenCharges(booking.kitchenAndGasCharges || 0);
+    setModMiscExpenses(booking.miscellaneousExpenses || 0);
+    setModMiscNotes(booking.miscellaneousExpensesNotes || '');
     setModError('');
   };
 
@@ -159,6 +175,16 @@ export const BookingList: React.FC<BookingListProps> = ({
   const handleSaveModify = () => {
     if (!modifyModalBooking) return;
     setModError('');
+
+    if (!modGuestName.trim()) {
+      setModError('Guest name cannot be empty.');
+      return;
+    }
+
+    if (!modGuestMobile.trim()) {
+      setModError('Guest mobile number cannot be empty.');
+      return;
+    }
 
     if (modRoomIds.length === 0) {
       setModError('Please select at least one room.');
@@ -192,7 +218,7 @@ export const BookingList: React.FC<BookingListProps> = ({
     const combinedBaseRate = selRooms.reduce((sum, r) => sum + r.pricePerNight, 0);
     const roomSubtotal = combinedBaseRate * newNights;
     const extraBedTotal = modExtraBedCount * modExtraBedRatePerNight * newNights;
-    const subtotal = roomSubtotal + extraBedTotal + (modFbCharges || 0);
+    const subtotal = roomSubtotal + extraBedTotal + (modFbCharges || 0) + (modKitchenCharges || 0) + (modMiscExpenses || 0);
     const effectiveDiscount = Math.min(subtotal, modDiscount);
     const taxableAmount = Math.max(0, subtotal - effectiveDiscount);
     const taxAmount = modRemoveGst ? 0 : Math.round(taxableAmount * 0.05);
@@ -206,6 +232,8 @@ export const BookingList: React.FC<BookingListProps> = ({
 
     const updated: Booking = {
       ...modifyModalBooking,
+      guestName: modGuestName.trim(),
+      guestMobile: modGuestMobile.trim(),
       roomId: selRooms[0].id,
       roomIds: modRoomIds,
       checkInDate: modCheckIn,
@@ -221,6 +249,9 @@ export const BookingList: React.FC<BookingListProps> = ({
       extraBedRatePerNight: modExtraBedRatePerNight,
       extraBedAmount: extraBedTotal,
       foodAndBeverageCharges: modFbCharges || 0,
+      kitchenAndGasCharges: modKitchenCharges || 0,
+      miscellaneousExpenses: modMiscExpenses || 0,
+      miscellaneousExpensesNotes: modMiscNotes.trim() || undefined,
       advanceAmount: finalAdvance,
       paymentStatus
     };
@@ -235,8 +266,18 @@ export const BookingList: React.FC<BookingListProps> = ({
     setCancelModalBooking(null);
   };
 
+  const todayStr = getTodayIST();
+
   const filteredBookings = bookings.filter(b => {
-    if (statusFilter !== 'all' && b.status !== statusFilter) return false;
+    if (statusFilter === 'today') {
+      const isTodayCheckIn = b.checkInDate === todayStr;
+      const isTodayCheckOut = b.checkOutDate === todayStr;
+      if (!isTodayCheckIn && !isTodayCheckOut) return false;
+      if (b.status === 'cancelled') return false;
+    } else if (statusFilter !== 'all' && b.status !== statusFilter) {
+      return false;
+    }
+
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
       const roomNames = getBookingRoomNames(b, rooms).toLowerCase();
@@ -262,20 +303,6 @@ export const BookingList: React.FC<BookingListProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {bookings.length > 0 && onClearAllBookings && (
-              <button
-                onClick={() => {
-                  setShowAdminModal(true);
-                  setAdminPinInput('');
-                  setAdminPinError('');
-                }}
-                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
-                title="Admin clearance required"
-              >
-                <Lock className="w-3.5 h-3.5 text-rose-600" />
-                <span>Admin: Clear All Bookings</span>
-              </button>
-            )}
             <button
               onClick={onNewBookingClick}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm transition"
@@ -289,7 +316,8 @@ export const BookingList: React.FC<BookingListProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
           <div className="flex items-center flex-wrap gap-2">
             {[
-              { id: 'all', label: 'All' },
+              { id: 'today', label: "Today's Check-in & Out" },
+              { id: 'all', label: 'All Bookings' },
               { id: 'confirmed', label: 'Confirmed' },
               { id: 'checked_in', label: 'In House' },
               { id: 'checked_out', label: 'Checked Out' },
@@ -298,12 +326,13 @@ export const BookingList: React.FC<BookingListProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
                   statusFilter === tab.id
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-emerald-700 text-white shadow-xs font-bold'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
+                {tab.id === 'today' && <Clock className="w-3.5 h-3.5 text-emerald-300" />}
                 {tab.label}
               </button>
             ))}
@@ -311,7 +340,10 @@ export const BookingList: React.FC<BookingListProps> = ({
 
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <label htmlFor="booking_search_query" className="sr-only">Search Bookings</label>
             <input
+              id="booking_search_query"
+              name="bookingSearchQuery"
               type="text"
               placeholder="Search guest, phone, or booking #"
               value={searchQuery}
@@ -334,12 +366,14 @@ export const BookingList: React.FC<BookingListProps> = ({
             <table className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="bg-slate-900 text-white font-bold">
-                  <th className="p-3.5">Booking Ref</th>
-                  <th className="p-3.5">Guest Info</th>
-                  <th className="p-3.5">Room</th>
-                  <th className="p-3.5">Stay Dates</th>
-                  <th className="p-3.5">Amount & Status</th>
-                  <th className="p-3.5 text-right">Actions</th>
+                  {/* Booking Column - Reduced width on mobile */}
+                  <th className="p-2 sm:p-3.5 w-[90px] min-w-[90px] max-w-[90px] sm:w-auto sm:min-w-0 sm:max-w-none text-[11px] sm:text-xs">Booking Ref</th>
+                  <th className="p-2 sm:p-3.5">Guest Info</th>
+                  {/* Room Column - Reduced width on mobile */}
+                  <th className="p-2 sm:p-3.5 w-[95px] min-w-[95px] max-w-[95px] sm:w-auto sm:min-w-0 sm:max-w-none text-[11px] sm:text-xs">Room</th>
+                  <th className="p-2 sm:p-3.5">Stay Dates</th>
+                  <th className="p-2 sm:p-3.5">Amount & Status</th>
+                  <th className="p-2 sm:p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -375,24 +409,37 @@ export const BookingList: React.FC<BookingListProps> = ({
 
                   return (
                     <tr key={booking.id} className="hover:bg-slate-50/80 transition">
-                      {/* Booking Ref */}
-                      <td className="p-3.5 font-mono">
-                        <span className="font-bold text-slate-800 block">{booking.bookingNumber}</span>
-                        <span className="text-[10px] text-slate-400">{booking.confirmationCode}</span>
+                      {/* Booking Ref Column - Reduced width on mobile */}
+                      <td className="p-2 sm:p-3.5 font-mono w-[90px] min-w-[90px] max-w-[90px] sm:w-auto sm:min-w-0 sm:max-w-none">
+                        <span className="font-bold text-slate-800 block truncate text-[11px] sm:text-xs">{booking.bookingNumber}</span>
+                        <span className="text-[9px] sm:text-[10px] text-slate-400 block truncate">{booking.confirmationCode}</span>
                       </td>
 
                       {/* Guest Info */}
-                      <td className="p-3.5">
-                        <div className="font-bold text-slate-800">{booking.guestName}</div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-slate-400" /> {booking.guestMobile}
+                      <td className="p-2 sm:p-3.5">
+                        <div className="flex items-center justify-between gap-1 group">
+                          <div>
+                            <div className="font-bold text-slate-800">{booking.guestName}</div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-slate-400" /> {booking.guestMobile}
+                            </div>
+                          </div>
+                          {booking.status !== 'cancelled' && (
+                            <button
+                              onClick={() => openModifyModal(booking)}
+                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-700 transition cursor-pointer"
+                              title="Edit Guest Name & Mobile Number"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
 
-                      {/* Room */}
-                      <td className="p-3.5">
-                        <div className="font-bold text-emerald-800">{getBookingRoomNames(booking, rooms)}</div>
-                        <div className="text-[10px] text-slate-500">
+                      {/* Room Column - Reduced width on mobile */}
+                      <td className="p-2 sm:p-3.5 w-[95px] min-w-[95px] max-w-[95px] sm:w-auto sm:min-w-0 sm:max-w-none">
+                        <div className="font-bold text-emerald-800 truncate text-[11px] sm:text-xs">{getBookingRoomNames(booking, rooms)}</div>
+                        <div className="text-[9px] sm:text-[10px] text-slate-500 truncate">
                           {booking.roomIds && booking.roomIds.length > 1
                             ? `${booking.roomIds.length} Rooms Booked`
                             : `Room #${room?.roomNumber || ''} • ${room?.type || ''}`}
@@ -426,116 +473,141 @@ export const BookingList: React.FC<BookingListProps> = ({
                       </td>
 
                       {/* Actions */}
-                      <td className="p-3.5 text-right space-x-1">
-                        <button
-                          onClick={() => setSelectedFbBooking(booking)}
-                          className={`px-2.5 py-1 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer ${
-                            booking.foodAndBeverageCharges && booking.foodAndBeverageCharges > 0
-                              ? 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                          }`}
-                          title="Charge Food & Beverages / Room Service"
-                        >
-                          <Utensils className="w-3.5 h-3.5 text-amber-600" />
-                          <span>F&B</span>
-                          {booking.foodAndBeverageCharges && booking.foodAndBeverageCharges > 0 ? (
-                            <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.2 rounded font-extrabold ml-0.5">
-                              +{formatCurrency(booking.foodAndBeverageCharges)}
-                            </span>
-                          ) : null}
-                        </button>
-
-                        <button
-                          onClick={() => setSelectedBillBooking(booking)}
-                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
-                          title="Generate Tax Invoice & Bill"
-                        >
-                          <Receipt className="w-3.5 h-3.5 text-amber-300" />
-                          <span>Bill</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            const roomNames = getBookingRoomNames(booking, rooms);
-                            const adv = booking.advanceAmount !== undefined ? booking.advanceAmount : (booking.paymentStatus === 'Paid' ? booking.totalAmount : 0);
-                            const fbSummary = booking.foodAndBeverageItems && booking.foodAndBeverageItems.length > 0
-                              ? booking.foodAndBeverageItems.map(i => `${i.name} x${i.qty}`).join(', ')
-                              : undefined;
-
-                            const text = generateBookingShareText({
-                              bookingNumber: booking.bookingNumber,
-                              confirmationCode: booking.confirmationCode,
-                              guestName: booking.guestName,
-                              guestMobile: booking.guestMobile,
-                              roomNames,
-                              checkInDate: booking.checkInDate,
-                              checkOutDate: booking.checkOutDate,
-                              nights: booking.nights,
-                              totalAmount: booking.totalAmount,
-                              advanceAmount: adv,
-                              paymentStatus: booking.paymentStatus,
-                              discountAmount: booking.discountAmount,
-                              isGstExempt: booking.isGstExempt,
-                              extraBedCount: booking.extraBedCount,
-                              extraBedRatePerNight: booking.extraBedRatePerNight,
-                              extraBedAmount: booking.extraBedAmount,
-                              foodAndBeverageCharges: booking.foodAndBeverageCharges,
-                              foodAndBeverageItemsSummary: fbSummary
-                            });
-                            window.open(getWhatsAppShareUrl(booking.guestMobile, text), '_blank');
-                          }}
-                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer"
-                          title="Share Voucher on WhatsApp"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>WhatsApp</span>
-                        </button>
-
-                        <button
-                          onClick={() => setSelectedVoucherBooking(booking)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition"
-                          title="Print / View Voucher"
-                        >
-                          Voucher
-                        </button>
-
-                        {booking.status === 'confirmed' && (
+                      <td className="p-3.5 text-right">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <button
-                            onClick={() => onCheckIn(booking.id)}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition"
+                            onClick={() => setSelectedFbBooking(booking)}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer min-h-[34px] ${
+                              booking.foodAndBeverageCharges && booking.foodAndBeverageCharges > 0
+                                ? 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                            }`}
+                            title="Charge Food & Beverages / Room Service"
                           >
-                            Check-In
+                            <Utensils className="w-3.5 h-3.5 text-amber-600" />
+                            <span>F&B</span>
+                            {booking.foodAndBeverageCharges && booking.foodAndBeverageCharges > 0 ? (
+                              <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-extrabold ml-0.5">
+                                +{formatCurrency(booking.foodAndBeverageCharges)}
+                              </span>
+                            ) : null}
                           </button>
-                        )}
 
-                        {booking.status === 'checked_in' && (
                           <button
-                            onClick={() => onCheckOut(booking.id)}
-                            className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition"
+                            onClick={() => setSelectedKitchenAndGasBooking(booking)}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer min-h-[34px] ${
+                              booking.kitchenAndGasCharges && booking.kitchenAndGasCharges > 0
+                                ? 'bg-orange-100 text-orange-950 hover:bg-orange-200 border border-orange-300'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                            }`}
+                            title="Charge Kitchen & Gas Equipments"
                           >
-                            Check-Out
+                            <Flame className="w-3.5 h-3.5 text-orange-600" />
+                            <span>Kitchen & Gas</span>
+                            {booking.kitchenAndGasCharges && booking.kitchenAndGasCharges > 0 ? (
+                              <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded font-extrabold ml-0.5">
+                                +{formatCurrency(booking.kitchenAndGasCharges)}
+                              </span>
+                            ) : null}
                           </button>
-                        )}
 
-                        {booking.status !== 'cancelled' && booking.status !== 'checked_out' && (
-                          <>
-                            <button
-                              onClick={() => openModifyModal(booking)}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition"
-                              title="Modify Dates or Room"
-                            >
-                              Edit
-                            </button>
+                          <button
+                            onClick={() => setSelectedBillBooking(booking)}
+                            className="px-3 py-1.5 text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer min-h-[34px]"
+                            title="Generate Tax Invoice & Bill"
+                          >
+                            <Receipt className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Bill</span>
+                          </button>
 
+                          <button
+                            onClick={() => {
+                              const roomNames = getBookingRoomNames(booking, rooms);
+                              const adv = booking.advanceAmount !== undefined ? booking.advanceAmount : (booking.paymentStatus === 'Paid' ? booking.totalAmount : 0);
+                              const fbSummary = booking.foodAndBeverageItems && booking.foodAndBeverageItems.length > 0
+                                ? booking.foodAndBeverageItems.map(i => `${i.name} x${i.qty}`).join(', ')
+                                : undefined;
+                              const kgSummary = booking.kitchenAndGasItems && booking.kitchenAndGasItems.length > 0
+                                ? booking.kitchenAndGasItems.map(i => `${i.name} (${i.days || 1}d)`).join(', ')
+                                : undefined;
+
+                              const text = generateBookingShareText({
+                                bookingNumber: booking.bookingNumber,
+                                confirmationCode: booking.confirmationCode,
+                                guestName: booking.guestName,
+                                guestMobile: booking.guestMobile,
+                                roomNames,
+                                checkInDate: booking.checkInDate,
+                                checkOutDate: booking.checkOutDate,
+                                nights: booking.nights,
+                                totalAmount: booking.totalAmount,
+                                advanceAmount: adv,
+                                paymentStatus: booking.paymentStatus,
+                                discountAmount: booking.discountAmount,
+                                isGstExempt: booking.isGstExempt,
+                                extraBedCount: booking.extraBedCount,
+                                extraBedRatePerNight: booking.extraBedRatePerNight,
+                                extraBedAmount: booking.extraBedAmount,
+                                foodAndBeverageCharges: booking.foodAndBeverageCharges,
+                                foodAndBeverageItemsSummary: fbSummary,
+                                kitchenAndGasCharges: booking.kitchenAndGasCharges,
+                                kitchenAndGasItemsSummary: kgSummary
+                              });
+                              window.open(getWhatsAppShareUrl(booking.guestMobile, text), '_blank');
+                            }}
+                            className="px-3 py-1.5 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg transition inline-flex items-center gap-1.5 cursor-pointer min-h-[34px]"
+                            title="Share Voucher on WhatsApp"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>WhatsApp</span>
+                          </button>
+
+                          <button
+                            onClick={() => setSelectedVoucherBooking(booking)}
+                            className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition cursor-pointer min-h-[34px]"
+                            title="Print / View Voucher"
+                          >
+                            Voucher
+                          </button>
+
+                          {booking.status === 'confirmed' && (
                             <button
-                              onClick={() => setCancelModalBooking(booking)}
-                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg transition"
-                              title="Cancel Reservation"
+                              onClick={() => onCheckIn(booking.id)}
+                              className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition cursor-pointer min-h-[34px]"
                             >
-                              Cancel
+                              Check-In
                             </button>
-                          </>
-                        )}
+                          )}
+
+                          {booking.status === 'checked_in' && (
+                            <button
+                              onClick={() => onCheckOut(booking.id)}
+                              className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition cursor-pointer min-h-[34px]"
+                            >
+                              Check-Out
+                            </button>
+                          )}
+
+                          {booking.status !== 'cancelled' && booking.status !== 'checked_out' && (
+                            <>
+                              <button
+                                onClick={() => openModifyModal(booking)}
+                                className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition cursor-pointer min-h-[34px]"
+                                title="Modify Dates or Room"
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                onClick={() => setCancelModalBooking(booking)}
+                                className="px-3 py-1.5 text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg transition cursor-pointer min-h-[34px]"
+                                title="Cancel Reservation"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -549,14 +621,49 @@ export const BookingList: React.FC<BookingListProps> = ({
       {/* MODAL: MODIFY RESERVATION */}
       {modifyModalBooking && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-slate-800">Modify Reservation: {modifyModalBooking.bookingNumber}</h3>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-800">Edit Reservation: {modifyModalBooking.bookingNumber}</h3>
+              <button
+                onClick={() => setModifyModalBooking(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
 
             {modError && (
               <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-lg font-medium">{modError}</p>
             )}
 
             <div className="space-y-3">
+              {/* Guest Details (Name & Mobile Number) */}
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl space-y-2">
+                <span className="text-xs font-bold text-emerald-900 block">Guest Details</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Guest Name</label>
+                    <input
+                      type="text"
+                      value={modGuestName}
+                      onChange={e => setModGuestName(e.target.value)}
+                      placeholder="e.g. Rahul Sharma"
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Mobile Number</label>
+                    <input
+                      type="tel"
+                      value={modGuestMobile}
+                      onChange={e => setModGuestMobile(e.target.value)}
+                      placeholder="e.g. 9876543210"
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Select Room(s) for this Reservation ({modRoomIds.length} Selected)
@@ -695,6 +802,79 @@ export const BookingList: React.FC<BookingListProps> = ({
                   }}
                   className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-bold text-slate-800 outline-none"
                 />
+              </div>
+
+              {/* Kitchen & Gas Equipment Charges Field */}
+              <div className="p-3 bg-orange-50/50 border border-orange-200/80 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-orange-900 flex items-center gap-1">
+                    <Flame className="w-3.5 h-3.5 text-orange-600" />
+                    Kitchen & Gas Equipment Rental Charges (₹)
+                  </label>
+                  {modifyModalBooking && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = modifyModalBooking;
+                        setModifyModalBooking(null);
+                        setSelectedKitchenAndGasBooking(current);
+                      }}
+                      className="text-[10px] text-orange-800 hover:underline font-bold cursor-pointer"
+                    >
+                      Open Itemized Equipment Manager →
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  value={modKitchenCharges === 0 ? '' : modKitchenCharges}
+                  placeholder="0"
+                  onChange={e => {
+                    const raw = e.target.value;
+                    setModKitchenCharges(raw === '' ? 0 : Math.max(0, parseInt(raw) || 0));
+                  }}
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-bold text-slate-800 outline-none"
+                />
+              </div>
+
+              {/* Miscellaneous/Damages Field */}
+              <div className="p-3 bg-violet-50/50 border border-violet-200/80 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="mod_misc_expenses" className="text-xs font-bold text-violet-900 flex items-center gap-1">
+                    <Receipt className="w-3.5 h-3.5 text-violet-600" />
+                    Miscellaneous/Damages (₹)
+                  </label>
+                  {modMiscExpenses > 0 && (
+                    <span className="text-[10px] font-bold text-violet-800 bg-violet-100 px-2 py-0.5 rounded-full">
+                      +{formatCurrency(modMiscExpenses)} Added
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    id="mod_misc_expenses"
+                    name="modMiscExpenses"
+                    type="number"
+                    min={0}
+                    value={modMiscExpenses === 0 ? '' : modMiscExpenses}
+                    placeholder="0"
+                    onChange={e => {
+                      const raw = e.target.value;
+                      setModMiscExpenses(raw === '' ? 0 : Math.max(0, parseInt(raw) || 0));
+                    }}
+                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-bold text-slate-800 outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <input
+                    id="mod_misc_notes"
+                    name="modMiscNotes"
+                    type="text"
+                    value={modMiscNotes}
+                    placeholder="Note: e.g. Breakage, Laundry, Cab"
+                    onChange={e => setModMiscNotes(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -841,6 +1021,17 @@ export const BookingList: React.FC<BookingListProps> = ({
                     🍽️ <strong>Food & Beverages Charges:</strong> {formatCurrency(selectedVoucherBooking.foodAndBeverageCharges)}
                   </p>
                 ) : null}
+                {selectedVoucherBooking.kitchenAndGasCharges && selectedVoucherBooking.kitchenAndGasCharges > 0 ? (
+                  <p className="text-orange-900 font-semibold bg-orange-100/70 px-2 py-1 rounded border border-orange-300 inline-block my-1">
+                    🔥 <strong>Kitchen & Gas Rental:</strong> {formatCurrency(selectedVoucherBooking.kitchenAndGasCharges)}
+                  </p>
+                ) : null}
+                {selectedVoucherBooking.miscellaneousExpenses && selectedVoucherBooking.miscellaneousExpenses > 0 ? (
+                  <p className="text-violet-900 font-semibold bg-violet-100/70 px-2 py-1 rounded border border-violet-300 inline-block my-1">
+                    📦 <strong>Miscellaneous/Damages:</strong> {formatCurrency(selectedVoucherBooking.miscellaneousExpenses)}
+                    {selectedVoucherBooking.miscellaneousExpensesNotes ? ` (${selectedVoucherBooking.miscellaneousExpensesNotes})` : ''}
+                  </p>
+                ) : null}
                 {selectedVoucherBooking.discountAmount ? (
                   <p className="text-emerald-700"><strong>Discount Applied:</strong> -{formatCurrency(selectedVoucherBooking.discountAmount)}</p>
                 ) : null}
@@ -894,7 +1085,11 @@ export const BookingList: React.FC<BookingListProps> = ({
                     isGstExempt: selectedVoucherBooking.isGstExempt,
                     extraBedCount: selectedVoucherBooking.extraBedCount,
                     extraBedRatePerNight: selectedVoucherBooking.extraBedRatePerNight,
-                    extraBedAmount: selectedVoucherBooking.extraBedAmount
+                    extraBedAmount: selectedVoucherBooking.extraBedAmount,
+                    foodAndBeverageCharges: selectedVoucherBooking.foodAndBeverageCharges,
+                    kitchenAndGasCharges: selectedVoucherBooking.kitchenAndGasCharges,
+                    miscellaneousExpenses: selectedVoucherBooking.miscellaneousExpenses,
+                    miscellaneousNotes: selectedVoucherBooking.miscellaneousExpensesNotes
                   });
                   window.open(getWhatsAppShareUrl(selectedVoucherBooking.guestMobile, text), '_blank');
                 }}
@@ -955,6 +1150,19 @@ export const BookingList: React.FC<BookingListProps> = ({
         />
       )}
 
+      {/* MODAL: KITCHEN & GAS EQUIPMENT MANAGER */}
+      {selectedKitchenAndGasBooking && (
+        <KitchenAndGasModal
+          booking={selectedKitchenAndGasBooking}
+          rooms={rooms}
+          onSave={(updated) => {
+            onModifyBooking(updated);
+            setSelectedKitchenAndGasBooking(null);
+          }}
+          onClose={() => setSelectedKitchenAndGasBooking(null)}
+        />
+      )}
+
       {/* MODAL: TAX INVOICE & FINAL BILL */}
       {selectedBillBooking && (
         <BookingBillModal
@@ -964,87 +1172,6 @@ export const BookingList: React.FC<BookingListProps> = ({
           onCheckOut={onCheckOut}
           onClose={() => setSelectedBillBooking(null)}
         />
-      )}
-
-      {/* Admin Verification Modal for Clearing All Bookings */}
-      {showAdminModal && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-rose-100 text-rose-700 rounded-xl">
-                  <Lock className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Admin Security Verification</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Clearing records is restricted to Administrators</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAdminModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="bg-rose-50/80 border border-rose-100 rounded-xl p-3 text-xs text-rose-800 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <span><strong>Danger Zone:</strong> Clearing all bookings will permanently erase all reservation records, payment histories, and guest CRM profiles.</span>
-            </div>
-
-            <form
-              onSubmit={e => {
-                e.preventDefault();
-                if (adminPinInput === '1234') {
-                  setShowAdminModal(false);
-                  if (onClearAllBookings) onClearAllBookings();
-                } else {
-                  setAdminPinError('Incorrect Admin PIN. Access Denied.');
-                }
-              }}
-              className="space-y-3"
-            >
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Enter Admin Security PIN <span className="text-slate-400 font-normal">(Default PIN: 1234)</span>
-                </label>
-                <input
-                  type="password"
-                  maxLength={6}
-                  value={adminPinInput}
-                  onChange={e => {
-                    setAdminPinInput(e.target.value);
-                    setAdminPinError('');
-                  }}
-                  placeholder="••••"
-                  className="w-full px-4 py-2.5 text-center text-lg tracking-widest font-mono bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 font-bold text-slate-900"
-                  autoFocus
-                />
-              </div>
-
-              {adminPinError && (
-                <p className="text-xs font-bold text-rose-600 text-center animate-shake">{adminPinError}</p>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAdminModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Confirm & Clear All
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   );

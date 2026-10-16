@@ -192,8 +192,10 @@ export const PropertyManagerModal: React.FC<PropertyManagerModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Property Name *</label>
+                  <label htmlFor="prop_manager_name" className="block font-bold text-slate-700 mb-1">Property Name *</label>
                   <input
+                    id="prop_manager_name"
+                    name="propertyName"
                     type="text"
                     required
                     placeholder="e.g. Pine View Resort"
@@ -204,8 +206,10 @@ export const PropertyManagerModal: React.FC<PropertyManagerModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Tagline / Slogan</label>
+                  <label htmlFor="prop_manager_tagline" className="block font-bold text-slate-700 mb-1">Tagline / Slogan</label>
                   <input
+                    id="prop_manager_tagline"
+                    name="propertyTagline"
                     type="text"
                     placeholder="e.g. Luxury Eco-Stay near Golf Course"
                     value={tagline}
@@ -215,8 +219,10 @@ export const PropertyManagerModal: React.FC<PropertyManagerModalProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Full Address</label>
+                  <label htmlFor="prop_manager_address" className="block font-bold text-slate-700 mb-1">Full Address</label>
                   <input
+                    id="prop_manager_address"
+                    name="propertyAddress"
                     type="text"
                     placeholder="e.g. Golf Course Road, Near Karbi Club"
                     value={address}
@@ -226,8 +232,10 @@ export const PropertyManagerModal: React.FC<PropertyManagerModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">City / Town</label>
+                  <label htmlFor="prop_manager_city" className="block font-bold text-slate-700 mb-1">City / Town</label>
                   <input
+                    id="prop_manager_city"
+                    name="propertyCity"
                     type="text"
                     value={city}
                     onChange={e => setCity(e.target.value)}
@@ -236,15 +244,19 @@ export const PropertyManagerModal: React.FC<PropertyManagerModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">State & PIN</label>
+                  <label htmlFor="prop_manager_state" className="block font-bold text-slate-700 mb-1">State & PIN</label>
                   <div className="flex gap-2">
                     <input
+                      id="prop_manager_state"
+                      name="propertyState"
                       type="text"
                       value={state}
                       onChange={e => setState(e.target.value)}
                       className="w-2/3 px-3 py-2 bg-white border border-slate-200 rounded-lg font-medium outline-none"
                     />
                     <input
+                      id="prop_manager_pincode"
+                      name="propertyPincode"
                       type="text"
                       value={pincode}
                       onChange={e => setPincode(e.target.value)}
@@ -254,8 +266,10 @@ export const PropertyManagerModal: React.FC<PropertyManagerModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Contact Phone</label>
+                  <label htmlFor="prop_manager_phone" className="block font-bold text-slate-700 mb-1">Contact Phone</label>
                   <input
+                    id="prop_manager_phone"
+                    name="propertyPhone"
                     type="text"
                     placeholder="+91 7086015740"
                     value={phone}
@@ -265,8 +279,10 @@ export const PropertyManagerModal: React.FC<PropertyManagerModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Contact Email</label>
+                  <label htmlFor="prop_manager_email" className="block font-bold text-slate-700 mb-1">Contact Email</label>
                   <input
+                    id="prop_manager_email"
+                    name="propertyEmail"
                     type="email"
                     placeholder="stay@homestay.com"
                     value={email}
@@ -276,8 +292,10 @@ export const PropertyManagerModal: React.FC<PropertyManagerModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">GSTIN Number (Optional)</label>
+                  <label htmlFor="prop_manager_gstin" className="block font-bold text-slate-700 mb-1">GSTIN Number (Optional)</label>
                   <input
+                    id="prop_manager_gstin"
+                    name="propertyGstin"
                     type="text"
                     placeholder="18AABCN1234F1Z5"
                     value={gstin}

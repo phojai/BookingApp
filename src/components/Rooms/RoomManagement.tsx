@@ -488,8 +488,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Room Name *</label>
+                  <label htmlFor="room_manage_name" className="block text-xs font-semibold text-slate-700 mb-1">Room Name *</label>
                   <input
+                    id="room_manage_name"
+                    name="roomName"
                     type="text"
                     value={name}
                     onChange={e => setName(e.target.value)}
@@ -498,8 +500,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Room Number *</label>
+                  <label htmlFor="room_manage_number" className="block text-xs font-semibold text-slate-700 mb-1">Room Number *</label>
                   <input
+                    id="room_manage_number"
+                    name="roomNumber"
                     type="text"
                     value={roomNumber}
                     onChange={e => setRoomNumber(e.target.value)}
@@ -511,8 +515,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Room Type</label>
+                  <label htmlFor="room_manage_type" className="block text-xs font-semibold text-slate-700 mb-1">Room Type</label>
                   <select
+                    id="room_manage_type"
+                    name="roomType"
                     value={type}
                     onChange={e => setType(e.target.value as RoomType)}
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
@@ -525,8 +531,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Capacity</label>
+                  <label htmlFor="room_manage_capacity" className="block text-xs font-semibold text-slate-700 mb-1">Capacity</label>
                   <input
+                    id="room_manage_capacity"
+                    name="roomCapacity"
                     type="number"
                     min={0}
                     value={capacity}
@@ -549,8 +557,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Price / Night (₹)</label>
+                  <label htmlFor="room_manage_price" className="block text-xs font-semibold text-slate-700 mb-1">Price / Night (₹)</label>
                   <input
+                    id="room_manage_price"
+                    name="roomPricePerNight"
                     type="number"
                     step={100}
                     value={pricePerNight === 0 ? '' : pricePerNight}
@@ -565,8 +575,10 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Amenities (comma-separated)</label>
+                <label htmlFor="room_manage_amenities" className="block text-xs font-semibold text-slate-700 mb-1">Amenities (comma-separated)</label>
                 <input
+                  id="room_manage_amenities"
+                  name="roomAmenities"
                   type="text"
                   value={amenitiesInput}
                   onChange={e => setAmenitiesInput(e.target.value)}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Download, X, Layers, Cpu, Database, Server, Bot, Workflow, CheckCircle, ArrowRight, ShieldCheck, Sparkles, RefreshCw, Building2 } from 'lucide-react';
+import { FileText, Download, X, Layers, Cpu, Database, Server, Bot, Workflow, CheckCircle, ArrowRight, ShieldCheck, Sparkles, RefreshCw, Building2, BookOpen, Target, Users, CheckSquare } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
 interface SystemDocPdfModalProps {
@@ -9,6 +9,7 @@ interface SystemDocPdfModalProps {
 
 export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, onClose }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [activeTab, setActiveTab] = useState<'prd' | 'architecture' | 'flowcharts'>('prd');
 
   if (!isOpen) return null;
 
@@ -32,19 +33,19 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
         doc.rect(0, 0, pageWidth, 28, 'F');
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
+        doc.setFontSize(15);
         doc.setTextColor(255, 255, 255);
         doc.text('Nohshring Homestay Management System', 12, 12);
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
+        doc.setFontSize(9.5);
         doc.setTextColor(52, 211, 153); // emerald-400
         doc.text(title + (subtitle ? ` | ${subtitle}` : ''), 12, 19);
 
         // Date right top
         doc.setFontSize(8);
         doc.setTextColor(148, 163, 184); // slate-400
-        doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { dateStyle: 'medium' })}`, pageWidth - 12, 12, { align: 'right' });
+        doc.text(`Doc Ref: PRD-2026-v2.5 | ${new Date().toLocaleDateString('en-US', { dateStyle: 'medium' })}`, pageWidth - 12, 12, { align: 'right' });
 
         y = 35;
       };
@@ -56,40 +57,116 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(100, 116, 139);
-        doc.text('Nohshring Homestay PMS — Architecture & Tech Documentation', 12, pageHeight - 7);
+        doc.text('Nohshring Homestay PMS — Official Product Requirement Document (PRD)', 12, pageHeight - 7);
         doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - 12, pageHeight - 7, { align: 'right' });
       };
 
       // ==========================================
-      // PAGE 1: System Overview & Tech Stack
+      // PAGE 1: Product Requirement Document (PRD)
       // ==========================================
-      addHeader('Technical Stack & Architecture Specification', 'Overview');
+      addHeader('Product Requirement Document (PRD)', 'Executive Summary & Functional Scope');
 
-      // Executive Summary Box
+      // Title Box
       doc.setFillColor(241, 245, 249); // slate-100
-      doc.roundedRect(12, y, pageWidth - 24, 22, 3, 3, 'F');
+      doc.roundedRect(12, y, pageWidth - 24, 20, 3, 3, 'F');
       
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(15, 23, 42);
-      doc.text('Executive Summary', 16, y + 7);
+      doc.text('1. Product Overview & Core Vision', 16, y + 6);
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
+      doc.setFontSize(8);
       doc.setTextColor(51, 65, 85);
       const summaryLines = doc.splitTextToSize(
-        'Nohshring Homestay is a full-stack, enterprise-grade Multi-Tenant Property Management System (PMS). It integrates multi-property location switching (propertyId tenancy scoping), multi-room matrix reservations, itemized check-out bill adjustments (Cash & Online modes), real-time Cloud Firestore synchronization, automated Telegram housekeeping reminders, and an interactive Gemini 2.5 Flash AI reservation assistant.',
+        'Nohshring Homestay Management System is an enterprise Multi-Tenant Property Management System (PMS) designed for multi-property homestays, eco-resorts, and boutique lodges. It streamlines front-desk check-ins, room inventory matrix visualization, extra bed & meal add-ons, itemized bill settlements, real-time Cloud Firestore synchronization, automated Telegram housekeeping reminders, and Gemini 2.5 AI guest assistants.',
         pageWidth - 32
       );
-      doc.text(summaryLines, 16, y + 13);
+      doc.text(summaryLines, 16, y + 11);
 
-      y += 28;
+      y += 24;
+
+      // User Personas Table
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text('2. Target User Personas & Use Cases', 12, y);
+      y += 5;
+
+      const personas = [
+        { role: 'Property Owner / Admin', goal: 'Monitor occupancy rates, multi-property revenue analytics, GSTIN reports, and adjust room prices.' },
+        { role: 'Front Desk Receptionist', goal: 'Quick booking creation, check-ins/check-outs, itemized bill settlement (Cash/Online GPay UPI), and room switching.' },
+        { role: 'Housekeeping Staff', goal: 'Receive automated instant Telegram notifications when a room checks out to perform turn-down cleaning.' },
+        { role: 'Guest / Traveler', goal: 'Receive GST-compliant digital bills, transparent charges, extra bed options, and food & beverage itemization.' }
+      ];
+
+      personas.forEach(p => {
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(12, y, pageWidth - 24, 10, 2, 2, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(16, 185, 129); // emerald-600
+        doc.text(`• ${p.role}:`, 15, y + 6);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(51, 65, 85);
+        doc.text(p.goal, 58, y + 6);
+        y += 12;
+      });
+
+      y += 2;
+
+      // Functional Requirements (FR-1 to FR-8)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text('3. Core Functional Requirements (FR)', 12, y);
+      y += 5;
+
+      const functionalReqs = [
+        { code: 'FR-1', title: 'Multi-Tenant Property Portfolio Scoping', desc: 'Isolate rooms, bookings, financials, and guest profiles by propertyId with instant header switching.' },
+        { code: 'FR-2', title: 'Interactive Occupancy Matrix & Room Status', desc: 'Real-time color-coded room status cards (Available, Occupied, Reserved, Cleaning) with quick actions.' },
+        { code: 'FR-3', title: 'Booking Wizard & Add-on Management', desc: 'Multi-step reservation flow supporting guest profiles, date pickers, extra beds, kitchen rental, and miscellaneous/damages.' },
+        { code: 'FR-4', title: 'Check-out & Itemized Bill Settlement', desc: 'Itemized bill preview with tax breakdown, incidental charges, and dual payment modes (Cash and Online GPay/UPI).' },
+        { code: 'FR-5', title: 'Multi-Device Real-Time Cloud & Server Sync', desc: 'Real-time sync to Cloud Firestore and backend with automatic mobile-desktop conflict resolution and focus auto-fetch.' },
+        { code: 'FR-6', title: 'Automated Telegram Housekeeping Alerts', desc: 'Instant dispatch of formatted checkout cleaning notices to Housekeeping Telegram Chat Groups.' },
+        { code: 'FR-7', title: 'Gemini 2.5 Flash AI Assistant', desc: 'Context-aware conversational assistant providing occupancy insights, room recommendations, and guest queries.' },
+        { code: 'FR-8', title: 'Role-Based Authentication (RBAC)', desc: 'Super Admin, Property Manager, and Front Desk Staff authorization levels with Google / Email auth.' }
+      ];
+
+      functionalReqs.forEach(fr => {
+        doc.setFillColor(239, 246, 255); // blue-50
+        doc.setDrawColor(191, 219, 254);
+        doc.roundedRect(12, y, pageWidth - 24, 11, 2, 2, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(30, 58, 138);
+        doc.text(`[${fr.code}] ${fr.title}`, 16, y + 4.5);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(51, 65, 85);
+        doc.text(fr.desc, 16, y + 8.5);
+
+        y += 13;
+      });
+
+      addFooter(1, 3);
+
+      // ==========================================
+      // PAGE 2: Technical Architecture Specification
+      // ==========================================
+      doc.addPage();
+      addHeader('Technical Architecture & Stack Specification', 'System Components');
+
+      y = 35;
 
       // Tech Stack Table / Cards Section
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
-      doc.text('1. Technology Stack Breakdown', 12, y);
+      doc.text('4. Technology Stack & Component Breakdown', 12, y);
       y += 6;
 
       const techStackItems = [
@@ -99,7 +176,7 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
           techs: 'React 19 (TypeScript), Tailwind CSS v4, Lucide React Icons, Motion Animation Engine, Recharts Analytics.'
         },
         {
-          category: 'Multi-Tenant Architecture',
+          category: 'Multi-Tenant Core',
           color: [245, 158, 11], // amber-500
           techs: 'Isolated Property Tenancy (propertyId schema scoping) supporting multiple homestay locations with dedicated inventories.'
         },
@@ -152,9 +229,9 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
 
       // System Architecture Diagram
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
-      doc.text('2. High-Level Architecture Diagram', 12, y);
+      doc.text('5. High-Level Architecture Diagram', 12, y);
       y += 6;
 
       // Draw diagram boxes
@@ -222,13 +299,43 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
       doc.text('• Telegram Bot API', 12 + (boxWidth * 2) + 28, y + 17);
       doc.text('• Gemini 2.5 Flash API', 12 + (boxWidth * 2) + 28, y + 22);
 
-      addFooter(1, 2);
+      y += 36;
+
+      // Non-Functional Requirements (NFR)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text('6. Non-Functional Requirements (NFR)', 12, y);
+      y += 5;
+
+      const nfrItems = [
+        { title: 'Performance', desc: '< 200ms client state re-render; asynchronous background Firestore writes.' },
+        { title: 'Security & Privacy', desc: 'Firebase Security Rules, zero plain-text passwords, server-side API key proxying.' },
+        { title: 'Reliability & Availability', desc: 'Automatic offline LocalStorage caching with smooth sync upon internet restoration.' },
+        { title: 'Usability & Responsiveness', desc: 'Fully adaptive touch-first mobile UI, installable PWA manifest, and high-contrast desktop layouts.' }
+      ];
+
+      nfrItems.forEach(nfr => {
+        doc.setFillColor(241, 245, 249);
+        doc.roundedRect(12, y, pageWidth - 24, 9, 2, 2, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`• ${nfr.title}:`, 15, y + 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(71, 85, 105);
+        doc.text(nfr.desc, 55, y + 5.5);
+        y += 11;
+      });
+
+      addFooter(2, 3);
 
       // ==========================================
-      // PAGE 2: Detailed Flowcharts
+      // PAGE 3: Operational Flowcharts & Sequences
       // ==========================================
       doc.addPage();
-      addHeader('Application Flowcharts & Sequence Diagrams', 'Process Flows');
+      addHeader('Operational Flowcharts & Sequence Diagrams', 'Process Flows');
 
       y = 35;
 
@@ -355,10 +462,10 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
         }
       });
 
-      addFooter(2, 2);
+      addFooter(3, 3);
 
       // Save PDF
-      doc.save('Nohshring_Homestay_Architecture_and_Flowcharts.pdf');
+      doc.save('Nohshring_Homestay_PRD_and_Architecture.pdf');
     } catch (err) {
       console.error('Error generating PDF:', err);
     } finally {
@@ -374,13 +481,13 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
         <div className="p-5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-500/30">
-              <Layers className="w-6 h-6" />
+              <BookOpen className="w-6 h-6" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-50 flex items-center gap-2">
-                System Architecture & Tech Stack Documentation
+                Product Requirement Document (PRD) & Tech Architecture
               </h3>
-              <p className="text-xs text-slate-400">Interactive Technical Specification, Architecture Diagram & Flowcharts</p>
+              <p className="text-xs text-slate-400">Complete Functional Requirements, User Personas, Architecture & Flowcharts</p>
             </div>
           </div>
 
@@ -391,7 +498,7 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-900/30 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isGeneratingPdf ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              <span>Download PDF Document</span>
+              <span>Download PRD PDF</span>
             </button>
             <button
               onClick={onClose}
@@ -402,238 +509,388 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
           </div>
         </div>
 
+        {/* Modal Navigation Tabs */}
+        <div className="bg-slate-800/90 px-6 py-2 border-b border-slate-700 flex items-center gap-2 shrink-0 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('prd')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'prd'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700'
+            }`}
+          >
+            <Target className="w-3.5 h-3.5" />
+            <span>Product Requirement Document (PRD)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('architecture')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'architecture'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Technical Architecture & Stack</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('flowcharts')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'flowcharts'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700'
+            }`}
+          >
+            <Workflow className="w-3.5 h-3.5" />
+            <span>Operational Flowcharts</span>
+          </button>
+        </div>
+
         {/* Modal Body / Interactive Preview */}
         <div className="p-6 overflow-y-auto space-y-8 bg-slate-50/50">
           
-          {/* Tech Stack Grid */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-sky-600" />
-                1. Technology Stack Specification
+          {/* TAB 1: PRD */}
+          {activeTab === 'prd' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Vision Box */}
+              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase text-emerald-600 tracking-wider flex items-center gap-1.5">
+                    <Target className="w-4 h-4 text-emerald-500" />
+                    Product Scope & Core Objectives
+                  </span>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-mono font-bold">PRD v2.5 Specification</span>
+                </div>
+                <p className="text-sm font-bold text-slate-800">Nohshring Multi-Tenant Homestay Management System (PMS)</p>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  A high-performance property management application engineered to handle multi-property scoping, real-time room occupancy matrices, extra bed & dining add-on itemization, instant check-out bill adjustments (Cash / GPay Online modes), automated Telegram housekeeping notifications, and Gemini 2.5 Flash AI assistance.
+                </p>
+              </div>
+
+              {/* Target User Personas */}
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  Target User Personas & Responsibilities
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
+                    <span className="text-xs font-bold text-emerald-700">1. Property Owner / Super Admin</span>
+                    <p className="text-xs text-slate-600">Overview of total revenue, multi-homestay property switching, GSTIN invoices, room pricing, and system role management.</p>
+                  </div>
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
+                    <span className="text-xs font-bold text-sky-700">2. Front Desk Receptionist / Staff</span>
+                    <p className="text-xs text-slate-600">Quick guest check-in/out, booking wizard, extra bed/meals billing, room allocation matrix, and cash/online collection.</p>
+                  </div>
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
+                    <span className="text-xs font-bold text-purple-700">3. Housekeeping Staff</span>
+                    <p className="text-xs text-slate-600">Automated instant Telegram alerts delivered to smartphone group chat whenever a room checks out for turn-down cleaning.</p>
+                  </div>
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1">
+                    <span className="text-xs font-bold text-amber-700">4. Guest / Traveler</span>
+                    <p className="text-xs text-slate-600">Transparent GST-compliant itemized billing, digital check-out bill preview, and preference tracking in CRM profiles.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Functional Requirements Grid */}
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
+                  <CheckSquare className="w-4 h-4 text-emerald-600" />
+                  Key Functional Requirements (FR)
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1 border-l-4 border-l-sky-500">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">[FR-1] Multi-Property Tenancy Scoping</span>
+                      <span className="text-[10px] bg-sky-50 text-sky-700 px-2 py-0.5 rounded font-mono font-bold">PropertyId</span>
+                    </div>
+                    <p className="text-xs text-slate-600">Isolate rooms, active bookings, guest CRM, and revenue analytics by property ID with seamless header switching.</p>
+                  </div>
+
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1 border-l-4 border-l-emerald-500">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">[FR-2] Room Inventory Matrix</span>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-mono font-bold">Live Status</span>
+                    </div>
+                    <p className="text-xs text-slate-600">Real-time status badges (Available, Occupied, Reserved, Cleaning) with direct action triggers for check-in & check-out.</p>
+                  </div>
+
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1 border-l-4 border-l-amber-500">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">[FR-3] Booking Wizard & Add-ons</span>
+                      <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-mono font-bold">Wizard</span>
+                    </div>
+                    <p className="text-xs text-slate-600">Multi-step booking form supporting extra beds, kitchen equipment fees, custom discounts, and check-in date validation.</p>
+                  </div>
+
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1 border-l-4 border-l-rose-500">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">[FR-4] Itemized Bill Settlement</span>
+                      <span className="text-[10px] bg-rose-50 text-rose-700 px-2 py-0.5 rounded font-mono font-bold">Billing</span>
+                    </div>
+                    <p className="text-xs text-slate-600">Automated balance calculation popup upon checkout with dual payment mode selection (1. Cash, 2. Online UPI/Card).</p>
+                  </div>
+
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1 border-l-4 border-l-purple-500">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">[FR-5] Telegram Housekeeping Bot</span>
+                      <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">Bot API</span>
+                    </div>
+                    <p className="text-xs text-slate-600">Dispatches formatted HTML turn-down cleaning notifications to Housekeeping Telegram group chats upon guest checkout.</p>
+                  </div>
+
+                  <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-1 border-l-4 border-l-indigo-500">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">[FR-6] Cloud Data Sync & Fallback</span>
+                      <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-mono font-bold">Firestore</span>
+                    </div>
+                    <p className="text-xs text-slate-600">Live persistence to Google Cloud Firestore with automatic offline LocalStorage cache and JSON export/import backup.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: ARCHITECTURE */}
+          {activeTab === 'architecture' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Tech Stack Grid */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Cpu className="w-5 h-5 text-sky-600" />
+                    Technology Stack Specification
+                  </h4>
+                  <span className="text-xs text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 font-medium">
+                    Full-Stack Architecture
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-sky-600 tracking-wider">Frontend Client</span>
+                      <span className="text-[10px] bg-sky-50 text-sky-700 px-2 py-0.5 rounded font-mono font-bold">SPA / React 19</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">React 19 + TypeScript + Tailwind CSS v4</p>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Single-page application styled with Tailwind utility classes, Lucide icons, Motion animations, and Recharts analytics dashboards.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-amber-600 tracking-wider">Multi-Tenant Core</span>
+                      <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-mono font-bold">Property Scoping</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">Isolated Property Tenancy (propertyId)</p>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Supports multi-homestay location switching with scoped room inventories, bookings, guest histories, GSTIN invoices, and revenue stats.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-indigo-600 tracking-wider">Application Server</span>
+                      <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-mono font-bold">Port 3000 / Cloud Run</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">Node.js + Express API Backend</p>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Handles server-side API proxying for Telegram bot notifications, local JSON database file backup, and Gemini GenAI requests.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-emerald-600 tracking-wider">Database & State</span>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-mono font-bold">Google Cloud Firestore</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">Firebase v12 + LocalStorage Cache</p>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Real-time multi-tenant cloud persistence for property locations, room inventory, bookings, and guest CRM profiles with offline state fallback.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-rose-600 tracking-wider">Bill Settlement</span>
+                      <span className="text-[10px] bg-rose-50 text-rose-700 px-2 py-0.5 rounded font-mono font-bold">Check-Out Settlement</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">Itemized Bill & Payment Modes</p>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Automated balance bill adjustment popup upon check-out allowing cash or online (UPI/Card) settlement confirmation.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-purple-600 tracking-wider">Housekeeping & AI</span>
+                      <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">Telegram & Gemini</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">Telegram Bot API & Gemini 2.5 Flash</p>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Automated HTML housekeeping reminders dispatched on checkout and intelligent conversational reservation queries.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* System Architecture Diagram */}
+              <div>
+                <h4 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
+                  <Server className="w-5 h-5 text-indigo-600" />
+                  System Architecture Diagram
+                </h4>
+
+                <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 text-white space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    
+                    {/* Layer 1 */}
+                    <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 space-y-2">
+                      <div className="w-8 h-8 mx-auto bg-sky-500/20 text-sky-400 rounded-xl flex items-center justify-center">
+                        <Layers className="w-4 h-4" />
+                      </div>
+                      <h5 className="text-xs font-bold text-sky-400 uppercase tracking-wider">1. Client Layer</h5>
+                      <p className="text-xs font-bold text-slate-200">React 19 SPA Browser UI</p>
+                      <ul className="text-[11px] text-slate-400 space-y-1 text-left pt-2 border-t border-slate-700/60">
+                        <li>• Occupancy Matrix View</li>
+                        <li>• Booking Calendar & Room CRM</li>
+                        <li>• Telegram Settings & AI Drawer</li>
+                      </ul>
+                    </div>
+
+                    {/* Layer 2 */}
+                    <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 space-y-2">
+                      <div className="w-8 h-8 mx-auto bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center">
+                        <Server className="w-4 h-4" />
+                      </div>
+                      <h5 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">2. Express Proxy Server</h5>
+                      <p className="text-xs font-bold text-slate-200">Node.js Container (Port 3000)</p>
+                      <ul className="text-[11px] text-slate-400 space-y-1 text-left pt-2 border-t border-slate-700/60">
+                        <li>• POST /api/telegram/send</li>
+                        <li>• GET & POST /api/db File Sync</li>
+                        <li>• POST /api/ai/chat Gemini Proxy</li>
+                      </ul>
+                    </div>
+
+                    {/* Layer 3 */}
+                    <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 space-y-2">
+                      <div className="w-8 h-8 mx-auto bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center">
+                        <Database className="w-4 h-4" />
+                      </div>
+                      <h5 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">3. External Services</h5>
+                      <p className="text-xs font-bold text-slate-200">Cloud Storage & APIs</p>
+                      <ul className="text-[11px] text-slate-400 space-y-1 text-left pt-2 border-t border-slate-700/60">
+                        <li>• Google Cloud Firestore DB</li>
+                        <li>• Telegram Bot API Endpoint</li>
+                        <li>• Gemini 2.5 Flash GenAI Model</li>
+                      </ul>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: FLOWCHARTS */}
+          {activeTab === 'flowcharts' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-2">
+                <Workflow className="w-5 h-5 text-emerald-600" />
+                Operational Flowcharts & System Sequences
               </h4>
-              <span className="text-xs text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 font-medium">
-                Full-Stack Architecture
-              </span>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-sky-600 tracking-wider">Frontend Client</span>
-                  <span className="text-[10px] bg-sky-50 text-sky-700 px-2 py-0.5 rounded font-mono font-bold">SPA / React 19</span>
-                </div>
-                <p className="text-sm font-bold text-slate-800">React 19 + TypeScript + Tailwind CSS v4</p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Single-page application styled with Tailwind utility classes, Lucide icons, Motion animations, and Recharts analytics dashboards.
-                </p>
-              </div>
-
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-amber-600 tracking-wider">Multi-Tenant Core</span>
-                  <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-mono font-bold">Property Scoping</span>
-                </div>
-                <p className="text-sm font-bold text-slate-800">Isolated Property Tenancy (propertyId)</p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Supports multi-homestay location switching with scoped room inventories, bookings, guest histories, GSTIN invoices, and revenue stats.
-                </p>
-              </div>
-
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-indigo-600 tracking-wider">Application Server</span>
-                  <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-mono font-bold">Port 3000 / Cloud Run</span>
-                </div>
-                <p className="text-sm font-bold text-slate-800">Node.js + Express API Backend</p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Handles server-side API proxying for Telegram bot notifications, local JSON database file backup, and Gemini GenAI requests.
-                </p>
-              </div>
-
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-emerald-600 tracking-wider">Database & State</span>
-                  <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-mono font-bold">Google Cloud Firestore</span>
-                </div>
-                <p className="text-sm font-bold text-slate-800">Firebase v12 + LocalStorage Cache</p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Real-time multi-tenant cloud persistence for property locations, room inventory, bookings, and guest CRM profiles with offline state fallback.
-                </p>
-              </div>
-
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-rose-600 tracking-wider">Bill Settlement</span>
-                  <span className="text-[10px] bg-rose-50 text-rose-700 px-2 py-0.5 rounded font-mono font-bold">Check-Out Settlement</span>
-                </div>
-                <p className="text-sm font-bold text-slate-800">Itemized Bill & Payment Modes</p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Automated balance bill adjustment popup upon check-out allowing cash or online (UPI/Card) settlement confirmation.
-                </p>
-              </div>
-
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-purple-600 tracking-wider">Housekeeping & AI</span>
-                  <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">Telegram & Gemini</span>
-                </div>
-                <p className="text-sm font-bold text-slate-800">Telegram Bot API & Gemini 2.5 Flash</p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Automated HTML housekeeping reminders dispatched on checkout and intelligent conversational reservation queries.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* System Architecture Diagram */}
-          <div>
-            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
-              <Server className="w-5 h-5 text-indigo-600" />
-              2. System Architecture Diagram
-            </h4>
-
-            <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 text-white space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+              <div className="space-y-4">
                 
-                {/* Layer 1 */}
-                <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 space-y-2">
-                  <div className="w-8 h-8 mx-auto bg-sky-500/20 text-sky-400 rounded-xl flex items-center justify-center">
-                    <Layers className="w-4 h-4" />
+                {/* Flowchart 1 */}
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-bold text-sky-700 flex items-center gap-1.5">
+                      <Bot className="w-4 h-4 text-sky-500" />
+                      Guest Check-out & Telegram Housekeeping Reminder Flow
+                    </span>
+                    <span className="text-[10px] bg-sky-50 text-sky-800 px-2 py-0.5 rounded font-bold">Automated Event</span>
                   </div>
-                  <h5 className="text-xs font-bold text-sky-400 uppercase tracking-wider">1. Client Layer</h5>
-                  <p className="text-xs font-bold text-slate-200">React 19 SPA Browser UI</p>
-                  <ul className="text-[11px] text-slate-400 space-y-1 text-left pt-2 border-t border-slate-700/60">
-                    <li>• Occupancy Matrix View</li>
-                    <li>• Booking Calendar & Room CRM</li>
-                    <li>• Telegram Settings & AI Drawer</li>
-                  </ul>
+
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-2 text-center text-xs">
+                    <div className="p-2.5 bg-sky-50 text-sky-900 rounded-xl font-medium border border-sky-100">
+                      1. Staff clicks "Check Out" on active booking
+                    </div>
+                    <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl font-medium border border-amber-200">
+                      2. Bill Settlement Popup: Adjust via 1. Cash or 2. Online
+                    </div>
+                    <div className="p-2.5 bg-sky-50 text-sky-900 rounded-xl font-medium border border-sky-100">
+                      3. React updates status to "checked_out" & Firestore sync
+                    </div>
+                    <div className="p-2.5 bg-sky-50 text-sky-900 rounded-xl font-medium border border-sky-100">
+                      4. Express calls POST /api/telegram/send proxy
+                    </div>
+                    <div className="p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold border border-emerald-200">
+                      5. Housekeeping staff receives Telegram alert!
+                    </div>
+                  </div>
                 </div>
 
-                {/* Layer 2 */}
-                <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 space-y-2">
-                  <div className="w-8 h-8 mx-auto bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center">
-                    <Server className="w-4 h-4" />
+                {/* Flowchart 2 */}
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-amber-500" />
+                      Multi-Tenant Location Scoping & Property Switching Flow
+                    </span>
+                    <span className="text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">Multi-Tenancy</span>
                   </div>
-                  <h5 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">2. Express Proxy Server</h5>
-                  <p className="text-xs font-bold text-slate-200">Node.js Container (Port 3000)</p>
-                  <ul className="text-[11px] text-slate-400 space-y-1 text-left pt-2 border-t border-slate-700/60">
-                    <li>• POST /api/telegram/send</li>
-                    <li>• GET & POST /api/db File Sync</li>
-                    <li>• POST /api/ai/chat Gemini Proxy</li>
-                  </ul>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-center text-xs">
+                    <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl font-medium border border-amber-100">
+                      1. Staff selects property location from Header dropdown
+                    </div>
+                    <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl font-medium border border-amber-100">
+                      2. React filters state context by selected propertyId
+                    </div>
+                    <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl font-medium border border-amber-100">
+                      3. Matrix, Calendar & Financials isolate matching property data
+                    </div>
+                    <div className="p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold border border-emerald-200">
+                      4. Synchronizes property scoped state to Cloud Firestore
+                    </div>
+                  </div>
                 </div>
 
-                {/* Layer 3 */}
-                <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 space-y-2">
-                  <div className="w-8 h-8 mx-auto bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center">
-                    <Database className="w-4 h-4" />
+                {/* Flowchart 3 */}
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                      <Database className="w-4 h-4 text-emerald-500" />
+                      Booking Lifecycle & Multi-Tier Cloud Persistence Flow
+                    </span>
+                    <span className="text-[10px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">Data Pipeline</span>
                   </div>
-                  <h5 className="text-xs font-bold text-emerald-400 uppercase tracking-wider">3. External Services</h5>
-                  <p className="text-xs font-bold text-slate-200">Cloud Storage & APIs</p>
-                  <ul className="text-[11px] text-slate-400 space-y-1 text-left pt-2 border-t border-slate-700/60">
-                    <li>• Google Cloud Firestore DB</li>
-                    <li>• Telegram Bot API Endpoint</li>
-                    <li>• Gemini 2.5 Flash GenAI Model</li>
-                  </ul>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-center text-xs">
+                    <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-xl font-medium border border-emerald-100">
+                      1. Booking Created / Edited / Removed
+                    </div>
+                    <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-xl font-medium border border-emerald-100">
+                      2. Instant React state update (Zero Latency)
+                    </div>
+                    <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-xl font-medium border border-emerald-100">
+                      3. Write to Cloud Firestore collection
+                    </div>
+                    <div className="p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold border border-emerald-200">
+                      4. Backup to LocalStorage & Server JSON DB
+                    </div>
+                  </div>
                 </div>
 
               </div>
             </div>
-          </div>
-
-          {/* Flowcharts */}
-          <div>
-            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
-              <Workflow className="w-5 h-5 text-emerald-600" />
-              3. Key Operational Flowcharts
-            </h4>
-
-            <div className="space-y-4">
-              
-              {/* Flowchart 1 */}
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-xs font-bold text-sky-700 flex items-center gap-1.5">
-                    <Bot className="w-4 h-4 text-sky-500" />
-                    Guest Check-out & Telegram Housekeeping Reminder Flow
-                  </span>
-                  <span className="text-[10px] bg-sky-50 text-sky-800 px-2 py-0.5 rounded font-bold">Automated Event</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-2 text-center text-xs">
-                  <div className="p-2.5 bg-sky-50 text-sky-900 rounded-xl font-medium border border-sky-100">
-                    1. Staff clicks "Check Out" on active booking
-                  </div>
-                  <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl font-medium border border-amber-200">
-                    2. Bill Settlement Popup: Adjust via 1. Cash or 2. Online
-                  </div>
-                  <div className="p-2.5 bg-sky-50 text-sky-900 rounded-xl font-medium border border-sky-100">
-                    3. React updates status to "checked_out" & Firestore sync
-                  </div>
-                  <div className="p-2.5 bg-sky-50 text-sky-900 rounded-xl font-medium border border-sky-100">
-                    4. Express calls POST /api/telegram/send proxy
-                  </div>
-                  <div className="p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold border border-emerald-200">
-                    5. Housekeeping staff receives Telegram alert!
-                  </div>
-                </div>
-              </div>
-
-              {/* Flowchart 2 */}
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-amber-500" />
-                    Multi-Tenant Location Scoping & Property Switching Flow
-                  </span>
-                  <span className="text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">Multi-Tenancy</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-center text-xs">
-                  <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl font-medium border border-amber-100">
-                    1. Staff selects property location from Header dropdown
-                  </div>
-                  <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl font-medium border border-amber-100">
-                    2. React filters state context by selected propertyId
-                  </div>
-                  <div className="p-2.5 bg-amber-50 text-amber-900 rounded-xl font-medium border border-amber-100">
-                    3. Matrix, Calendar & Financials isolate matching property data
-                  </div>
-                  <div className="p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold border border-emerald-200">
-                    4. Synchronizes property scoped state to Cloud Firestore
-                  </div>
-                </div>
-              </div>
-
-              {/* Flowchart 3 */}
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
-                    <Database className="w-4 h-4 text-emerald-500" />
-                    Booking Lifecycle & Multi-Tier Cloud Persistence Flow
-                  </span>
-                  <span className="text-[10px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">Data Pipeline</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-center text-xs">
-                  <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-xl font-medium border border-emerald-100">
-                    1. Booking Created / Edited / Removed
-                  </div>
-                  <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-xl font-medium border border-emerald-100">
-                    2. Instant React state update (Zero Latency)
-                  </div>
-                  <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-xl font-medium border border-emerald-100">
-                    3. Write to Cloud Firestore collection
-                  </div>
-                  <div className="p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold border border-emerald-200">
-                    4. Backup to LocalStorage & Server JSON DB
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
+          )}
 
         </div>
 
@@ -657,7 +914,7 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-900/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isGeneratingPdf ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              <span>Download PDF</span>
+              <span>Download PRD PDF</span>
             </button>
           </div>
         </div>
@@ -666,3 +923,4 @@ export const SystemDocPdfModal: React.FC<SystemDocPdfModalProps> = ({ isOpen, on
     </div>
   );
 };
+

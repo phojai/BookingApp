@@ -102,12 +102,15 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
         {/* Form Inputs */}
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+            <label htmlFor="telegram_bot_token" className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
               <span>Telegram Bot Token</span>
               <span className="text-[10px] font-normal text-slate-400">From @BotFather</span>
             </label>
             <input
+              id="telegram_bot_token"
+              name="botToken"
               type="password"
+              autoComplete="off"
               value={botToken}
               onChange={e => setBotToken(e.target.value)}
               placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
@@ -116,12 +119,15 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+            <label htmlFor="telegram_chat_id" className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
               <span>Housekeeping Chat / Group ID</span>
               <span className="text-[10px] font-semibold text-rose-600">Your User ID or Group ID (Not the Bot ID)</span>
             </label>
             <input
+              id="telegram_chat_id"
+              name="chatId"
               type="text"
+              autoComplete="off"
               value={chatId}
               onChange={e => setChatId(e.target.value)}
               placeholder="e.g. 987654321 or -100123456789"

@@ -14,6 +14,8 @@ import { TelegramSettingsModal } from './components/Settings/TelegramSettingsMod
 import { SystemDocPdfModal } from './components/Documentation/SystemDocPdfModal';
 import { PropertyManagerModal } from './components/Properties/PropertyManagerModal';
 import { CheckOutModal } from './components/Bookings/CheckOutModal';
+import { LoginModal } from './components/Auth/LoginModal';
+import { useAuth } from './context/AuthContext';
 import { sendHousekeepingTelegramReminder } from './utils/telegramUtils';
 import {
   loadAppDataFromFirestore,
@@ -44,8 +46,8 @@ const mergeBookings = (existing: Booking[], incoming: Booking[]): Booking[] => {
         map.set(b.id, b);
       } else {
         const ex = map.get(b.id)!;
-        const exTime = new Date(ex.createdAt || 0).getTime();
-        const incTime = new Date(b.createdAt || 0).getTime();
+        const exTime = new Date(ex.updatedAt || ex.createdAt || 0).getTime();
+        const incTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
         if (incTime >= exTime) {
           map.set(b.id, { ...ex, ...b });
         }
@@ -150,6 +152,21 @@ export default function App() {
   const [systemDocsModalOpen, setSystemDocsModalOpen] = useState<boolean>(false);
   const [toastAlert, setToastAlert] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [isDbLoaded, setIsDbLoaded] = useState<boolean>(false);
+
+  const { currentUser, isAuthModalOpen, setIsAuthModalOpen } = useAuth();
+
+  // Enforce tenant property assignment for logged in user
+  useEffect(() => {
+    if (!currentUser) return;
+    if (currentUser.role === 'super_admin' || currentUser.assignedPropertyIds.includes('all')) return;
+
+    // If currently selected property is not allowed for this user, force switch to their first authorized property
+    if (!currentUser.assignedPropertyIds.includes(selectedPropertyId)) {
+      if (currentUser.assignedPropertyIds.length > 0) {
+        setSelectedPropertyId(currentUser.assignedPropertyIds[0]);
+      }
+    }
+  }, [currentUser, selectedPropertyId]);
 
   // Filtered views based on active property selection
   const activePropertyId = selectedPropertyId === 'all' ? 'p-nohshring' : selectedPropertyId;
@@ -602,6 +619,7 @@ export default function App() {
           <OccupancyDashboard
             rooms={filteredRooms}
             bookings={filteredBookings}
+            guests={guests}
             onCheckIn={handleCheckIn}
             onCheckOut={handleCheckOut}
             onNewBooking={() => setActiveTab('wizard')}
@@ -609,6 +627,7 @@ export default function App() {
               setSelectedBookingForVoucher(booking);
               setActiveTab('bookings');
             }}
+            onUpdateBooking={handleModifyBooking}
           />
         )}
 
@@ -645,7 +664,6 @@ export default function App() {
             onModifyBooking={handleModifyBooking}
             onCancelBooking={handleCancelBooking}
             onNewBookingClick={() => setActiveTab('wizard')}
-            onClearAllBookings={handleClearAllBookings}
           />
         )}
 
@@ -724,6 +742,13 @@ export default function App() {
           onClose={() => setCheckoutTargetBooking(null)}
         />
       )}
+
+      {/* Login & Tenant Role Authentication Modal */}
+      <LoginModal
+        properties={properties}
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 }

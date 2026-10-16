@@ -359,6 +359,7 @@ export function calculateRevenueStats(
 ): RevenueStats {
   const safeRooms = rooms || [];
   const safeBookings = bookings || [];
+  // Strictly filter out cancelled bookings from all revenue & stats calculations
   const activeBookings = safeBookings.filter(b => b.status !== 'cancelled');
   const activeRooms = safeRooms.filter(r => r.status === 'active');
 
@@ -378,30 +379,32 @@ export function calculateRevenueStats(
   const oneYearAgo = todayTime - 365 * 24 * 60 * 60 * 1000;
 
   activeBookings.forEach(b => {
-    const bookingTime = new Date(b.createdAt).getTime();
-    const amount = b.totalAmount;
+    const amount = Number(b.totalAmount || 0);
+    const nights = Number(b.nights || 1);
 
     totalRevenueAllTime += amount;
-    totalRoomNightsSold += b.nights;
+    totalRoomNightsSold += nights;
 
     if (b.checkInDate === todayStr || b.checkOutDate === todayStr) {
-      dailyRevenue += b.totalAmount / (b.nights || 1);
+      dailyRevenue += amount / nights;
     }
-    if (bookingTime >= sevenDaysAgo) {
+
+    const checkInTime = parseYMD(b.checkInDate).getTime();
+    if (checkInTime >= sevenDaysAgo && checkInTime <= todayTime + 86400000 * 30) {
       weeklyRevenue += amount;
     }
-    if (bookingTime >= thirtyDaysAgo) {
+    if (checkInTime >= thirtyDaysAgo && checkInTime <= todayTime + 86400000 * 90) {
       monthlyRevenue += amount;
     }
-    if (bookingTime >= oneYearAgo) {
+    if (checkInTime >= oneYearAgo) {
       yearlyRevenue += amount;
     }
   });
 
-  // Average Daily Rate = Total Revenue / Total Room Nights Sold
+  // Average Daily Rate = Total Active Revenue / Total Room Nights Sold
   const averageDailyRate = totalRoomNightsSold > 0 ? Math.round(totalRevenueAllTime / totalRoomNightsSold) : 0;
 
-  // RevPAR = Total Revenue / Total Available Rooms
+  // RevPAR = Total Active Revenue / Total Available Rooms
   const totalAvailableRooms = activeRooms.length || 1;
   const revenuePerAvailableRoom = Math.round(monthlyRevenue / (totalAvailableRooms * 30));
 
@@ -444,6 +447,10 @@ export interface ShareableBookingInfo {
   extraBedAmount?: number;
   foodAndBeverageCharges?: number;
   foodAndBeverageItemsSummary?: string;
+  kitchenAndGasCharges?: number;
+  kitchenAndGasItemsSummary?: string;
+  miscellaneousExpenses?: number;
+  miscellaneousNotes?: string;
 }
 
 export function generateBookingShareText(info: ShareableBookingInfo): string {
@@ -456,6 +463,12 @@ export function generateBookingShareText(info: ShareableBookingInfo): string {
   const fbLine = (info.foodAndBeverageCharges && info.foodAndBeverageCharges > 0)
     ? `\n🍽️ *Food & Beverages:* ${formatCurrency(info.foodAndBeverageCharges)}${info.foodAndBeverageItemsSummary ? ` (${info.foodAndBeverageItemsSummary})` : ''}`
     : '';
+  const kgLine = (info.kitchenAndGasCharges && info.kitchenAndGasCharges > 0)
+    ? `\n🔥 *Kitchen & Gas Equipment:* ${formatCurrency(info.kitchenAndGasCharges)}${info.kitchenAndGasItemsSummary ? ` (${info.kitchenAndGasItemsSummary})` : ''}`
+    : '';
+  const miscLine = (info.miscellaneousExpenses && info.miscellaneousExpenses > 0)
+    ? `\n📦 *Miscellaneous/Damages:* ${formatCurrency(info.miscellaneousExpenses)}${info.miscellaneousNotes ? ` (${info.miscellaneousNotes})` : ''}`
+    : '';
 
   return `🏡 *NOHSHRING HOMESTAY*
 Official Stay Confirmation Voucher
@@ -467,7 +480,7 @@ Official Stay Confirmation Voucher
 🚪 *Room(s):* ${info.roomNames}
 📅 *Check-In:* ${formatDateReadable(info.checkInDate)} (From 2:00 PM)
 📅 *Check-Out:* ${formatDateReadable(info.checkOutDate)} (By 11:00 AM)
-🌙 *Stay Duration:* ${info.nights} Night(s)${extraBedLine}${fbLine}
+🌙 *Stay Duration:* ${info.nights} Night(s)${extraBedLine}${fbLine}${kgLine}${miscLine}
 --------------------------------
 💰 *Total Amount:* ${formatCurrency(info.totalAmount)}${discountLine}
 📋 *GST Status:* ${gstText}

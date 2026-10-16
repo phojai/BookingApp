@@ -82,9 +82,28 @@
         "isVIP": { "type": "boolean" }
       },
       "required": ["id", "name", "mobile"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User account and tenant role assignment",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "assignedPropertyIds": { "type": "array" }
+      },
+      "required": ["uid", "email", "role", "tenantId"]
     }
   },
   "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user accounts and assigned tenant permissions"
+    },
     "/properties/{propertyId}": {
       "schema": "Property",
       "description": "Collection of homestay property locations"

@@ -21,7 +21,7 @@ function ensureDbExists() {
     fs.mkdirSync(DB_DIR, { recursive: true });
   }
   if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ rooms: null, bookings: [], guests: [] }, null, 2), 'utf-8');
+    fs.writeFileSync(DB_FILE, JSON.stringify({ properties: null, rooms: null, bookings: [], guests: [] }, null, 2), 'utf-8');
   }
 }
 
@@ -31,7 +31,7 @@ function readDb() {
     const raw = fs.readFileSync(DB_FILE, 'utf-8');
     return JSON.parse(raw);
   } catch (e) {
-    return { rooms: null, bookings: [], guests: [] };
+    return { properties: null, rooms: null, bookings: [], guests: [] };
   }
 }
 
@@ -40,6 +40,7 @@ function writeDb(data: any) {
   try {
     const existing = readDb();
     const updated = {
+      properties: data.properties !== undefined ? data.properties : existing.properties,
       rooms: data.rooms !== undefined ? data.rooms : existing.rooms,
       bookings: data.bookings !== undefined ? data.bookings : existing.bookings,
       guests: data.guests !== undefined ? data.guests : existing.guests

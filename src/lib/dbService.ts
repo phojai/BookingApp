@@ -18,7 +18,7 @@ export interface AppData {
 }
 
 let isQuotaExceeded = false;
-let lastSyncedDataHash = '';
+let lastSyncedItemHashes = new Map<string, string>();
 
 function checkQuotaExceeded(): boolean {
   return isQuotaExceeded || isFirestoreQuotaExceeded();
@@ -156,6 +156,12 @@ export async function loadAppDataFromFirestore(): Promise<AppData> {
       }
       return r;
     });
+
+    // Prime initial item hashes to prevent initial sync from writing unchanged documents
+    loadedProperties.forEach(p => lastSyncedItemHashes.set(`properties/${p.id}`, JSON.stringify(sanitizeForFirestore(p))));
+    loadedRooms.forEach(r => lastSyncedItemHashes.set(`rooms/${r.id}`, JSON.stringify(sanitizeForFirestore(r))));
+    loadedBookings.forEach(b => lastSyncedItemHashes.set(`bookings/${b.id}`, JSON.stringify(sanitizeForFirestore(b))));
+    loadedGuests.forEach(g => lastSyncedItemHashes.set(`guests/${g.id}`, JSON.stringify(sanitizeForFirestore(g))));
 
     return {
       properties: loadedProperties,
@@ -331,35 +337,38 @@ export async function clearAllBookingsFromFirestore(): Promise<void> {
 }
 
 /**
- * Sync entire state to Firestore (and local server / localStorage)
+ * Sync entire state to Firestore with item-level diffing to conserve write quota
  */
 export async function syncAllToFirestore(rooms: Room[], bookings: Booking[], guests: GuestProfile[], properties?: Property[]): Promise<void> {
   if (checkQuotaExceeded()) return;
 
   try {
-    const currentHash = JSON.stringify({
-      p: properties?.map(p => ({ id: p.id, n: p.name })),
-      r: rooms.map(r => ({ id: r.id, s: r.status, p: r.pricePerNight })),
-      b: bookings.map(b => ({ id: b.id, s: b.status, ps: b.paymentStatus, a: b.advanceAmount, g: b.guestName, m: b.guestMobile, t: b.totalAmount, d: b.checkInDate })),
-      g: guests.map(g => ({ id: g.id, n: g.name, m: g.mobile, e: g.email, s: g.totalStays, sp: g.totalSpend, l: g.lastStayDate }))
-    });
-
-    // Skip redundant network writes if data has not modified
-    if (currentHash === lastSyncedDataHash) {
-      return;
-    }
-
-    // Write batch for modified or new records
     const batch = writeBatch(db);
-    if (properties && properties.length > 0) {
-      properties.forEach(p => batch.set(doc(db, 'properties', p.id), sanitizeForFirestore(p)));
-    }
-    rooms.forEach(r => batch.set(doc(db, 'rooms', r.id), sanitizeForFirestore(r)));
-    bookings.forEach(b => batch.set(doc(db, 'bookings', b.id), sanitizeForFirestore(b)));
-    guests.forEach(g => batch.set(doc(db, 'guests', g.id), sanitizeForFirestore(g)));
+    let changeCount = 0;
 
-    await batch.commit();
-    lastSyncedDataHash = currentHash;
+    const checkAndStage = (collectionName: string, id: string, dataObj: any) => {
+      const sanitized = sanitizeForFirestore(dataObj);
+      const hashKey = `${collectionName}/${id}`;
+      const jsonStr = JSON.stringify(sanitized);
+
+      if (lastSyncedItemHashes.get(hashKey) !== jsonStr) {
+        batch.set(doc(db, collectionName, id), sanitized);
+        lastSyncedItemHashes.set(hashKey, jsonStr);
+        changeCount++;
+      }
+    };
+
+    if (properties && properties.length > 0) {
+      properties.forEach(p => checkAndStage('properties', p.id, p));
+    }
+    rooms.forEach(r => checkAndStage('rooms', r.id, r));
+    bookings.forEach(b => checkAndStage('bookings', b.id, b));
+    guests.forEach(g => checkAndStage('guests', g.id, g));
+
+    if (changeCount > 0) {
+      await batch.commit();
+      console.log(`Firestore sync completed: updated ${changeCount} changed document(s).`);
+    }
   } catch (err) {
     if (isQuotaError(err)) {
       markQuotaExceeded();
